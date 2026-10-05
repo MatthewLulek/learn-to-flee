@@ -1,0 +1,2355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A pixel-art flying game: help Dr. Lev Orlov and his dog Belka cross the Bering Strait in a bathtub.">
+<style>*,*::before,*::after{box-sizing:border-box}body{margin:0}[hidden]{display:none!important}img{max-width:100%}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+<title>Learn to Flee</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600&family=Press+Start+2P&display=swap">
+<style>
+/* Layout: a 16:9 pixel stage; on wide screens the menus sit on the stage like instrument panels, on phones they stack under it. */
+:root {
+  --bg: #0b0e1c; --panel: #141a2d; --panel-2: #1c2441; --edge: #3a4672; --edge-lo: #070912;
+  --snow: #eef2f7; --dim: #9aa5c4; --ice: #7fd6e8; --brass: #e8ad3e; --brass-lo: #94631a;
+  --stamp: #cf3b33; --paper: #ece3cb; --paper-ink: #2b2733; --good: #7fd89a; --bad: #ff8a7a;
+  --f-px: "Press Start 2P", ui-monospace, "Courier New", monospace;
+  --f-body: "Pixelify Sans", "Trebuchet MS", system-ui, sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--snow); font-family: var(--f-body); font-size: 15px; line-height: 1.35; }
+body::before { content: ""; position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 0%, #1a2350 0%, transparent 60%); }
+#app { min-height: 100%; display: flex; justify-content: center; align-items: center; padding-block: 16px; padding-inline: 16px; box-sizing: border-box; position: relative; }
+#wrap { position: relative; width: min(100%, calc((100dvh - 32px) * 16 / 9)); container-type: inline-size; }
+#stage { position: relative; aspect-ratio: 16 / 9; width: 100%; max-width: 100%; background: #000; box-shadow: 0 0 0 2px var(--edge), 0 0 0 4px var(--edge-lo), 0 18px 50px rgba(0,0,0,.6); }
+#cv { width: 100%; height: 100%; display: block; image-rendering: pixelated; image-rendering: crisp-edges; touch-action: none; }
+#ui { position: absolute; inset: 0; pointer-events: none; font-size: clamp(12px, 1.32cqw, 17px); }
+.panel { pointer-events: auto; position: absolute; box-sizing: border-box; }
+canvas.px { image-rendering: pixelated; }
+
+/* ---- shared pieces ---- */
+.box { background: var(--panel); box-shadow: inset 0 0 0 2px var(--edge), inset 0 0 0 4px var(--edge-lo), 0 6px 0 rgba(0,0,0,.35); padding: 1.1em 1.2em; }
+.eyebrow { font-family: var(--f-px); font-size: .62em; letter-spacing: .08em; text-transform: uppercase; color: var(--ice); margin: 0 0 .7em; }
+h1, h2, h3, h4, h5 { margin: 0; font-weight: 600; text-wrap: balance; }
+.btn { font-family: var(--f-px); font-size: .66em; letter-spacing: .04em; text-transform: uppercase; line-height: 1.4; color: var(--snow); background: #27315a; border: 0; padding: .95em 1.15em; cursor: pointer; box-shadow: inset 0 0 0 2px #4d5c97, 0 4px 0 var(--edge-lo); position: relative; white-space: nowrap; }
+.btn:hover:not(:disabled) { background: #313d70; }
+.btn:active:not(:disabled) { transform: translateY(2px); box-shadow: inset 0 0 0 2px #4d5c97, 0 2px 0 var(--edge-lo); }
+.btn:focus-visible, .cat:focus-visible, #tabs button:focus-visible, .ctl:focus-visible { outline: 2px solid var(--ice); outline-offset: 3px; }
+.btn.primary { background: var(--brass); color: #1d1408; box-shadow: inset 0 0 0 2px #ffd27a, 0 4px 0 var(--brass-lo); }
+.btn.primary:hover:not(:disabled) { background: #f5bd52; }
+.btn.ghost { background: transparent; box-shadow: inset 0 0 0 2px #333e66; color: var(--dim); }
+.btn:disabled { cursor: default; opacity: .55; }
+.btn.sm { font-size: .56em; padding: .85em .9em; }
+.rub { display: inline-block; width: .52em; height: .74em; margin-left: .2em; vertical-align: -.02em; background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 5 7' shape-rendering='crispEdges'%3E%3Cpath d='M1 0h3v1H1zM4 1h1v2H4zM1 3h3v1H1zM1 0h1v7H1zM0 3h1v1H0zM0 5h3v1H0z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 5 7' shape-rendering='crispEdges'%3E%3Cpath d='M1 0h3v1H1zM4 1h1v2H4zM1 3h3v1H1zM1 0h1v7H1zM0 3h1v1H0zM0 5h3v1H0z'/%3E%3C/svg%3E") center / contain no-repeat; }
+.note { color: var(--dim); margin: 0 0 .8em; font-size: .92em; }
+.warn { color: var(--bad); }
+
+/* ---- title ---- */
+#pTitle { left: 3%; bottom: 5%; width: 47%; }
+.logo { display: flex; gap: .9em; align-items: center; margin-bottom: .9em; }
+.logo canvas { width: 4.4em; height: 4.4em; flex: none; box-shadow: 0 0 0 2px var(--edge), 0 0 0 4px var(--edge-lo); background: #2b3466; }
+.logo h1 { font-family: var(--f-px); font-size: 1.85em; line-height: 1.15; letter-spacing: -.01em; color: var(--snow); text-shadow: 3px 3px 0 #0a0d18; }
+.logo h1 span { color: var(--brass); display: block; font-size: 1.32em; text-shadow: 3px 3px 0 #5a2618, 6px 6px 0 #0a0d18; }
+.lede { margin: 0 0 1em; color: #d7def0; max-width: 46ch; }
+.row { display: flex; flex-wrap: wrap; gap: .7em; }
+.keys { display: grid; grid-template-columns: auto 1fr; gap: .25em 1em; margin: 1.1em 0 0; font-size: .86em; color: var(--dim); }
+.keys dt { font-family: var(--f-px); font-size: .7em; color: var(--snow); padding-top: .25em; }
+.keys dd { margin: 0; }
+
+/* ---- cutscenes ---- */
+#pCut { left: 50%; bottom: 4%; transform: translateX(-50%); width: 78%; }
+#cutBox { display: flex; gap: 1.2em; align-items: flex-end; background: rgba(9, 12, 26, .88); }
+#cutText { margin: 0; font-size: 1.12em; flex: 1; min-width: 0; }
+.cutside { display: flex; flex-direction: column; align-items: flex-end; gap: .6em; flex: none; }
+#cutCount { font-family: var(--f-px); font-size: .55em; color: var(--dim); }
+.paper { background: var(--paper); color: var(--paper-ink); padding: 1.3em 1.5em 1.2em; position: relative; box-shadow: 0 6px 0 rgba(0,0,0,.4), inset 0 0 0 2px #d4c8a6; }
+.paper .ph { font-family: var(--f-px); font-size: .62em; letter-spacing: .04em; margin: 0 0 .3em; color: #3d3546; }
+.paper .ps { font-size: .85em; color: #6d6577; margin: 0 0 .9em; border-bottom: 2px solid #cfc2a0; padding-bottom: .6em; }
+.paper .pb { margin: 0 0 1em; font-size: 1.05em; max-width: 60ch; }
+.stamp { position: absolute; right: 1.2em; bottom: 1em; font-family: var(--f-px); font-size: .7em; color: var(--stamp); border: 3px solid var(--stamp); padding: .5em .6em; transform: rotate(-9deg); opacity: .85; letter-spacing: .06em; }
+#memoPaper { margin-bottom: 0; }
+#memoPaper .btn { margin-top: .2em; }
+
+/* ---- hangar ---- */
+#pHangar { right: 1.4%; top: 2.4%; bottom: 2.4%; width: 57%; display: flex; flex-direction: column; padding: 4px; }
+.hhead { display: grid; grid-template-columns: auto auto 1fr auto; gap: .5em 1.2em; align-items: center; padding: 1em 1.2em .8em; border-bottom: 2px solid var(--edge-lo); }
+.hhead .lbl { font-family: var(--f-px); font-size: .55em; color: var(--dim); letter-spacing: .08em; display: block; margin-bottom: .35em; }
+.hhead .num { font-family: var(--f-px); font-size: .95em; }
+.hhead .cash .num { color: var(--brass); }
+.bestbar { height: .5em; background: #0d1222; box-shadow: inset 0 0 0 1px #2a3456; position: relative; margin-top: .35em; }
+.bestbar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ice); }
+.bestbar::after { content: ""; position: absolute; right: -2px; top: -3px; width: 4px; height: calc(100% + 6px); background: var(--brass); }
+#hStats { display: flex; flex-wrap: wrap; gap: .3em 1.1em; padding: .6em 1.2em; font-size: .86em; color: var(--dim); background: var(--panel-2); }
+#hStats b { color: var(--snow); font-weight: 600; }
+#tabs { display: flex; gap: 2px; padding: .7em 1.2em 0; border-bottom: 2px solid var(--edge); }
+#tabs button { font-family: var(--f-px); font-size: .55em; text-transform: uppercase; letter-spacing: .05em; color: var(--dim); background: transparent; border: 0; padding: .9em .9em; cursor: pointer; }
+#tabs button small { font-family: var(--f-body); font-size: 1.3em; color: #6d789a; margin-left: .3em; letter-spacing: 0; text-transform: none; }
+#tabs button[aria-selected="true"] { color: var(--snow); background: var(--edge); }
+.tbody { flex: 1; min-height: 0; overflow: auto; padding: 1em 1.2em; scrollbar-color: #3a4672 transparent; }
+#cats { display: flex; gap: .4em; overflow-x: auto; padding-bottom: .5em; margin-bottom: .6em; }
+.cat { flex: none; display: flex; flex-direction: column; align-items: center; gap: .3em; background: #1a2140; border: 0; color: var(--dim); padding: .45em .5em .5em; cursor: pointer; box-shadow: inset 0 0 0 2px #2a3456; font-family: var(--f-body); font-size: .85em; }
+.cat canvas { width: 48px; height: 30px; image-rendering: pixelated; }
+.cat[aria-pressed="true"] { background: #2a3560; color: var(--snow); box-shadow: inset 0 0 0 2px var(--ice); }
+#items { display: flex; flex-direction: column; gap: .5em; }
+.item { display: grid; grid-template-columns: 96px 1fr auto; gap: .9em; align-items: center; padding: .7em .8em; background: #181f39; box-shadow: inset 0 0 0 2px #232c4f; }
+.item.equipped { box-shadow: inset 0 0 0 2px var(--brass); background: #221f2a; }
+.item .icon { width: 96px; height: 60px; image-rendering: pixelated; background: #0f1428; }
+.cat canvas, .item .icon { image-rendering: crisp-edges; image-rendering: pixelated; }
+.item .meta { min-width: 0; }
+.item h4 { font-size: 1.02em; }
+.item p { margin: .15em 0 .35em; color: var(--dim); font-size: .88em; }
+.stats { display: flex; flex-wrap: wrap; gap: .1em 1em; font-size: .85em; color: var(--dim); }
+.stats b { color: var(--snow); font-weight: 600; }
+.stats em { font-style: normal; font-size: .9em; }
+em.up { color: var(--good); } em.down { color: var(--bad); }
+.btn.buy { background: #3a3220; box-shadow: inset 0 0 0 2px var(--brass), 0 4px 0 var(--edge-lo); color: #ffe2a6; }
+.btn.buy.poor { background: #1d2238; box-shadow: inset 0 0 0 2px #3a4466, 0 4px 0 var(--edge-lo); color: var(--dim); }
+.hfoot { display: flex; gap: .6em; flex-wrap: wrap; padding: .7em 1.2em .9em; border-top: 2px solid var(--edge-lo); }
+.goalrow { margin-bottom: 1em; }
+.goalrow h4 { font-size: .98em; margin-bottom: .45em; }
+.goalrow small { color: var(--dim); font-weight: 400; margin-left: .5em; }
+.chips { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .35em; }
+.chip { background: #181f39; box-shadow: inset 0 0 0 2px #2a3456; padding: .45em .4em; text-align: center; min-width: 0; }
+.chip b { display: block; font-family: var(--f-px); font-size: .5em; line-height: 1.6; color: var(--snow); overflow-wrap: anywhere; }
+.chip span { font-size: .78em; color: var(--dim); }
+.chip.done { background: #2c2716; box-shadow: inset 0 0 0 2px var(--brass); }
+.chip.done span { color: var(--brass); }
+.pages { display: grid; grid-template-columns: repeat(auto-fill, minmax(14em, 1fr)); gap: .5em; }
+.page { background: #181f39; box-shadow: inset 0 0 0 2px #232c4f; padding: .7em .8em; }
+.page.have { background: var(--paper); color: var(--paper-ink); box-shadow: inset 0 0 0 2px #d4c8a6; }
+.page h5 { font-family: var(--f-px); font-size: .55em; margin-bottom: .5em; color: inherit; opacity: .8; }
+.page p { margin: 0; font-size: .92em; }
+.page .hint { color: var(--dim); }
+.awards { display: grid; grid-template-columns: repeat(auto-fill, minmax(17em, 1fr)); gap: .5em; }
+.award { display: grid; grid-template-columns: auto 1fr auto; gap: .7em; align-items: center; background: #161c33; box-shadow: inset 0 0 0 2px #232c4f; padding: .6em .7em; color: var(--dim); }
+.award h5 { font-size: .95em; color: var(--dim); }
+.award p { margin: .1em 0 0; font-size: .82em; }
+.award .medal { width: 1.6em; height: 1.6em; background: #2a3150; clip-path: polygon(50% 0, 100% 38%, 82% 100%, 18% 100%, 0 38%); }
+.award.have { background: #201d27; box-shadow: inset 0 0 0 2px var(--brass); color: #d9cfb9; }
+.award.have h5 { color: var(--snow); }
+.award.have .medal { background: var(--brass); }
+.award .rew { font-size: .82em; color: var(--brass); }
+
+/* ---- memo modal ---- */
+#pMemo { left: 50%; top: 50%; transform: translate(-50%, -50%); width: 52%; z-index: 5; }
+#pMemo .paper { padding-left: 5.4em; min-height: 6em; }
+#pMemo[data-kind="diary"] .paper { background: repeating-linear-gradient(#ece3cb 0 1.55em, #c9d6e6 1.55em calc(1.55em + 1px)); }
+#memoFace { position: absolute; left: 1.2em; top: 1.3em; width: 3.4em; height: 3.4em; image-rendering: pixelated; background: #2b3466; box-shadow: 0 0 0 2px #3d3546; }
+#memoTitle { font-size: 1.1em; margin: 0 0 .4em; }
+#memoText { margin: 0 0 1em; font-size: 1.05em; max-width: 52ch; }
+
+/* ---- results ---- */
+#pResults { left: 50%; top: 50%; transform: translate(-50%, -50%); width: 62%; max-height: 94%; overflow: auto; z-index: 4; }
+.rhead { display: flex; gap: 1em; align-items: center; margin-bottom: 1em; }
+#rFace { width: 4.6em; height: 4.6em; flex: none; image-rendering: pixelated; background: #2b3466; box-shadow: 0 0 0 2px var(--edge), 0 0 0 4px var(--edge-lo); }
+#rEnd { font-family: var(--f-px); font-size: .78em; line-height: 1.5; margin: 0 0 .4em; }
+#rQuote { margin: 0; color: #d7def0; font-size: 1.02em; }
+#rRows { display: flex; flex-direction: column; gap: 2px; margin-bottom: .8em; }
+.trow { display: grid; grid-template-columns: 8.5em 1fr auto; gap: .8em; align-items: baseline; padding: .4em .6em; background: #181f39; animation: rowIn .28s steps(3) both; animation-delay: var(--d); }
+.trow .k { color: var(--dim); font-size: .9em; }
+.trow .v { min-width: 0; }
+.trow .c { font-family: var(--f-px); font-size: .62em; color: var(--brass); font-variant-numeric: tabular-nums; text-align: right; }
+.trow.goal { background: #1d2a2a; } .trow.goal .k { color: var(--good); }
+.trow.ach { background: #2a2416; } .trow.ach .k { color: var(--brass); }
+mark { background: var(--stamp); color: #fff; font-family: var(--f-px); font-size: .5em; padding: .3em .45em; vertical-align: .2em; margin-left: .4em; }
+.rtotal { display: flex; justify-content: space-between; align-items: center; gap: 1em; flex-wrap: wrap; padding-top: .6em; border-top: 2px solid var(--edge); }
+.rtotal .big { font-family: var(--f-px); font-size: 1.1em; color: var(--brass); }
+.rtotal .bank { color: var(--dim); font-size: .9em; }
+@keyframes rowIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ---- pause / confirm ---- */
+#pPause, #pConfirm { left: 50%; top: 50%; transform: translate(-50%, -50%); width: 36%; z-index: 6; }
+#pPause .row, #pConfirm .row { flex-direction: column; }
+#pPause h2, #pConfirm p { font-family: var(--f-px); font-size: .8em; margin: 0 0 1em; line-height: 1.6; }
+#pConfirm p { font-family: var(--f-body); font-size: 1.05em; }
+#pConfirm .row { flex-direction: row; }
+
+/* ---- flight controls ---- */
+#pCtl { left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; align-items: flex-end; padding: 2%; pointer-events: none; }
+#pCtl .grp { display: flex; gap: .5em; pointer-events: auto; }
+.ctl { font-family: var(--f-px); font-size: .6em; color: var(--snow); background: rgba(20, 26, 45, .62); border: 0; box-shadow: inset 0 0 0 2px rgba(127, 214, 232, .5); width: 5.2em; height: 5.2em; cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none; }
+.ctl.wide { width: 7.4em; }
+.ctl.down, .ctl[aria-pressed="true"] { background: rgba(127, 214, 232, .35); }
+.ctl.boost { box-shadow: inset 0 0 0 2px rgba(232, 173, 62, .8); color: #ffe2a6; }
+.ctl.sys { width: 3.6em; height: 3.6em; }
+@media (pointer: fine) and (min-width: 761px) { #pCtl .grp.fly { display: none; } #pCtl .grp.sys { margin-left: auto; } }
+
+/* ---- phones: stack the menus under the stage ---- */
+@media (max-width: 760px) {
+  #app { align-items: flex-start; }
+  #wrap { width: 100%; }
+  #ui { position: static; font-size: 14px; }
+  .panel { position: static !important; transform: none !important; width: auto !important; max-height: none !important; margin-top: 12px; }
+  #pHangar { display: block; }
+  .tbody { overflow: visible; }
+  .hhead { grid-template-columns: 1fr 1fr; }
+  .hhead .launchcell { grid-column: 1 / -1; }
+  .hhead .launchcell .btn { width: 100%; }
+  .item { grid-template-columns: 96px 1fr; }
+  .item .btn { grid-column: 1 / -1; }
+  .chips { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  #pCtl { padding: 0; }
+  #pCtl { display: grid; grid-template-columns: 1fr auto 1fr; gap: .6em; align-items: stretch; }
+  #pCtl .grp { flex-direction: column; gap: .6em; }
+  .ctl, .ctl.wide { width: 100%; height: 6.2em; font-size: .72em; }
+  .ctl.sys { width: 4.4em; height: 100%; flex: 1; }
+  #pCtl::after { content: "Tip: turn your phone sideways for a bigger view."; grid-column: 1 / -1; color: var(--dim); font-size: .9em; text-align: center; padding-top: .4em; }
+  #cutBox { flex-direction: column; align-items: stretch; }
+  .cutside { flex-direction: row; justify-content: space-between; align-items: center; }
+  #pMemo .paper { padding-left: 1.3em; padding-top: 5.2em; }
+}
+@media (prefers-reduced-motion: reduce) { .trow { animation: none; } }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="wrap">
+    <div id="stage"><canvas id="cv" width="384" height="216" aria-label="Game view"></canvas></div>
+    <div id="ui">
+      <section id="pTitle" class="panel" hidden>
+        <div class="box">
+          <div class="logo">
+            <canvas id="titleFace" class="px" width="32" height="32" aria-hidden="true"></canvas>
+            <div><p class="eyebrow">Chukotka to Alaska · 82 km</p><h1>Learn to <span>Flee</span></h1></div>
+          </div>
+          <p class="lede">Dr. Lev Orlov has a bathtub, a garage full of junk and a dog named Belka. Fly, earn rubles, bolt on better parts, and fly again until you cross the Bering Strait.</p>
+          <div class="row">
+            <button id="btnContinue" class="btn primary">Continue</button>
+            <button id="btnNew" class="btn">New escape</button>
+            <button id="btnTitleSound" class="btn ghost">Sound: on</button>
+          </div>
+          <dl class="keys">
+            <dt>W/S or ↑/↓</dt><dd>Tilt the nose up or down</dd>
+            <dt>Space</dt><dd>Launch, then hold to run the engine</dd>
+            <dt>B or Shift</dt><dd>Fire the booster</dd>
+            <dt>F · Esc</dt><dd>Fast forward · Pause</dd>
+          </dl>
+        </div>
+      </section>
+
+      <section id="pCut" class="panel" hidden>
+        <div id="cutBox" class="box">
+          <p id="cutText"></p>
+          <div class="cutside"><span id="cutCount">1 / 5</span><div class="row"><button id="cutSkip" class="btn ghost sm">Skip</button><button id="cutNext" class="btn primary">Next</button></div></div>
+        </div>
+        <div id="memoPaper" class="paper" hidden>
+          <p class="ph" id="mpHead"></p>
+          <p class="ps" id="mpSub"></p>
+          <p class="pb" id="mpBody"></p>
+          <button class="btn sm" onclick="UI.cutNext()">Next</button>
+          <span class="stamp" id="mpStamp"></span>
+        </div>
+      </section>
+
+      <section id="pHangar" class="panel box" hidden>
+        <header class="hhead">
+          <div><span class="lbl">ДЕНЬ · DAY</span><span class="num" id="hDay">1</span></div>
+          <div class="cash"><span class="lbl">RUBLES</span><span class="num"><span id="hCash">0</span><i class="rub"></i></span></div>
+          <div><span class="lbl">BEST · <span id="hBest">0 m</span> of 82 km</span><div class="bestbar"><i id="hBestBar"></i></div></div>
+          <div class="launchcell"><button id="btnLaunch" class="btn primary">Launch</button></div>
+        </header>
+        <div id="hStats"></div>
+        <nav id="tabs" role="tablist">
+          <button role="tab" data-tab="parts">Parts</button>
+          <button role="tab" data-tab="goals">Goals<small id="tabGoalsN"></small></button>
+          <button role="tab" data-tab="notes">Notebook<small id="tabNotesN"></small></button>
+          <button role="tab" data-tab="awards">Awards<small id="tabAwardsN"></small></button>
+        </nav>
+        <div id="tab_parts" class="tbody"><div id="cats"></div><div id="items"></div></div>
+        <div id="tab_goals" class="tbody" hidden></div>
+        <div id="tab_notes" class="tbody" hidden></div>
+        <div id="tab_awards" class="tbody" hidden></div>
+        <footer class="hfoot">
+          <button id="btnSound" class="btn ghost sm">Sound: on</button>
+          <button id="btnTitle" class="btn ghost sm">Title screen</button>
+          <button id="btnReset" class="btn ghost sm">Erase progress</button>
+        </footer>
+      </section>
+
+      <section id="pMemo" class="panel" hidden>
+        <div class="paper">
+          <canvas id="memoFace" width="32" height="32" aria-hidden="true"></canvas>
+          <p class="ph" id="memoKind"></p>
+          <h3 id="memoTitle"></h3>
+          <p id="memoText"></p>
+          <button id="memoOk" class="btn sm">Back to work</button>
+          <span class="stamp" id="memoStamp">УТВЕРЖДЕНО</span>
+        </div>
+      </section>
+
+      <section id="pResults" class="panel box" hidden>
+        <p class="eyebrow">Flight report · Day <span id="rDay">1</span></p>
+        <div class="rhead"><canvas id="rFace" width="32" height="32" aria-hidden="true"></canvas><div><p id="rEnd"></p><p id="rQuote"></p></div></div>
+        <div id="rRows"></div>
+        <div class="rtotal">
+          <div><span class="big" id="rTotal">+0</span><div class="bank">In the cookie tin: <span id="rBank">0</span><i class="rub"></i></div></div>
+          <button id="rCont" class="btn primary">Back to the garage</button>
+        </div>
+      </section>
+
+      <section id="pPause" class="panel box" hidden>
+        <h2>Paused</h2>
+        <div class="row">
+          <button id="pzResume" class="btn primary">Resume</button>
+          <button id="pzFF" class="btn">Fast forward (F)</button>
+          <button id="pzEnd" class="btn">End flight and collect</button>
+          <button id="pzSound" class="btn ghost">Sound: on</button>
+        </div>
+      </section>
+
+      <section id="pConfirm" class="panel box" hidden>
+        <p id="cfText"></p>
+        <div class="row"><button id="cfYes" class="btn primary">Yes, erase</button><button id="cfNo" class="btn">Keep it</button></div>
+      </section>
+
+      <section id="pCtl" class="panel" hidden>
+        <div class="grp fly"><button class="ctl" id="cUp" aria-label="Nose up">UP</button><button class="ctl" id="cDown" aria-label="Nose down">DOWN</button></div>
+        <div class="grp sys"><button class="ctl sys" id="cPause" aria-label="Pause">II</button><button class="ctl sys" id="cFF" aria-label="Fast forward" aria-pressed="false">&gt;&gt;</button></div>
+        <div class="grp fly"><button class="ctl boost" id="cBoost">BOOST</button><button class="ctl wide" id="cThrust">ENGINE</button></div>
+      </section>
+    </div>
+  </div>
+</div>
+<script>
+// ================= CORE: data, terrain, physics =================
+const G = 9.81;
+const ALASKA = 82000, BIGD = [35000, 39600], LITD = [43300, 46100], DATELINE = 41500;
+const SHORE = 420, SHELF = 1300, PLATEAU = 56;
+const MU = { snow: 0.16, ice: 0.11, rock: 0.3, tundra: 0.25 };
+const HSCALE = 5000;
+
+const PARTS = {
+  ramp: [
+    { id: 'r0', name: 'Snowbank', cost: 0, speed: 16, angle: 14, h: 4, desc: "A pile of snow behind the station. Belka dug most of it." },
+    { id: 'r1', name: 'Iced Slide', cost: 80, speed: 23, angle: 16, h: 7, desc: "Forty buckets of water poured down the hill overnight." },
+    { id: 'r2', name: 'Dacha Roof Ramp', cost: 350, speed: 32, angle: 19, h: 11, desc: "The neighbor will not miss his roof until spring." },
+    { id: 'r3', name: 'Abandoned Ski Jump', cost: 1200, speed: 45, angle: 22, h: 24, desc: "Built for a winter festival that never happened." },
+    { id: 'r4', name: 'Tractor-Tire Catapult', cost: 4500, speed: 62, angle: 24, h: 12, desc: "Forty inner tubes, stretched by one very patient tractor." },
+    { id: 'r5', name: 'Rail Spur Launcher', cost: 13000, speed: 85, angle: 26, h: 15, desc: "A rocket sled on the old mine railway. Approved by nobody." }
+  ],
+  hull: [
+    { id: 'h0', name: 'Cast-Iron Bathtub', cost: 0, mass: 110, cd: 0.45, hp: 3, desc: "Heavy, but it has a plug. Belka approves." },
+    { id: 'h1', name: 'Banya Barrel', cost: 200, mass: 70, cd: 0.36, hp: 3, desc: "A barrel sauna minus the stove. Still smells of birch." },
+    { id: 'h2', name: 'Old Sedan Shell', cost: 800, mass: 150, cd: 0.28, hp: 6, desc: "Roof removed for visibility. Doors removed for weight." },
+    { id: 'h3', name: 'Aeroclub Glider Body', cost: 3000, mass: 55, cd: 0.14, hp: 3, desc: "Sleek, light, and older than Lev." },
+    { id: 'h4', name: 'Museum Space Capsule', cost: 8000, mass: 240, cd: 0.16, hp: 10, desc: "Borrowed from the regional museum. Heat shield included." },
+    { id: 'h5', name: 'Composite Pod No. 7', cost: 24000, mass: 85, cd: 0.09, hp: 7, desc: "Lev's own banned alloy research, finally put to use." }
+  ],
+  wings: [
+    { id: 'w0', name: 'No Wings', cost: 0, S: 0, k: 0, cd: 0, vmax: 99999, mass: 0, desc: "Pure ballistics. Very brave." },
+    { id: 'w1', name: 'Ironing Boards', cost: 60, S: 2.4, k: 0.25, cd: 0.05, vmax: 80, mass: 12, desc: "Two boards, floral covers still on." },
+    { id: 'w2', name: 'Barn Doors', cost: 250, S: 4.5, k: 0.2, cd: 0.14, vmax: 110, mass: 45, desc: "Solid oak. The goat lives outdoors now." },
+    { id: 'w3', name: 'Bedsheet Sail Wings', cost: 900, S: 8, k: 0.16, cd: 0.2, vmax: 70, mass: 14, desc: "Grandmother's linens on ski poles. Huge, and fragile." },
+    { id: 'w4', name: 'Crop-Duster Biplane Wings', cost: 2500, S: 8, k: 0.14, cd: 0.16, vmax: 150, mass: 70, desc: "Two wings are better than one." },
+    { id: 'w5', name: 'Glider Wings', cost: 6000, S: 9, k: 0.09, cd: 0.07, vmax: 230, mass: 60, desc: "Long and graceful. Do not exceed 230 m/s." },
+    { id: 'w6', name: 'Swept Delta Wings', cost: 18000, S: 6, k: 0.14, cd: 0.05, vmax: 99999, mass: 110, desc: "From a scrapyard prototype. Built for speed." }
+  ],
+  engine: [
+    { id: 'e0', name: 'No Engine', cost: 0, thrust: 0, burn: 0, pv: 0, mass: 0, cd: 0, desc: "Gravity is free." },
+    { id: 'e1', name: 'Leaf Blower', cost: 120, thrust: 350, burn: 0.25, pv: 55, mass: 7, cd: 0.02, desc: "Two-stroke, loud and angry." },
+    { id: 'e2', name: 'Chainsaw Propeller', cost: 500, thrust: 900, burn: 0.45, pv: 80, mass: 14, cd: 0.03, desc: "Do not lean back." },
+    { id: 'e3', name: 'Sidecar Motorcycle Engine', cost: 1500, thrust: 1800, burn: 0.8, pv: 120, mass: 45, cd: 0.05, desc: "The sidecar stays home." },
+    { id: 'e4', name: 'Snowmobile Engine', cost: 4000, thrust: 3200, burn: 1.3, pv: 190, mass: 75, cd: 0.06, desc: "Pulled from the postman's snowmobile. He has been told." },
+    { id: 'e5', name: 'Scrapyard Turbojet', cost: 18000, thrust: 7000, burn: 2.6, pv: 0, mass: 190, cd: 0.05, desc: "Found under a tarp at the airfield scrapyard." },
+    { id: 'e6', name: 'Kettle-3 Experimental', cost: 40000, thrust: 15000, burn: 3.6, pv: 0, mass: 210, cd: 0.04, desc: "Codename Чайник. Lev's confiscated thesis, rebuilt from memory." }
+  ],
+  tank: [
+    { id: 't0', name: 'No Tank', cost: 0, cap: 0, mass: 0, cd: 0, desc: "Engines need fuel. Just saying." },
+    { id: 't1', name: 'Teapot', cost: 40, cap: 4, mass: 2, cd: 0.01, desc: "Holds four liters. Smells faintly of mint." },
+    { id: 't2', name: 'Jerrycan', cost: 220, cap: 20, mass: 4, cd: 0.02, desc: "Army surplus. The army has not noticed." },
+    { id: 't3', name: 'Water Heater Tank', cost: 900, cap: 60, mass: 18, cd: 0.04, desc: "No more hot showers. Worth it." },
+    { id: 't4', name: 'Oil Drum', cost: 2500, cap: 150, mass: 25, cd: 0.05, desc: "Rolled up the hill at night, very quietly." },
+    { id: 't5', name: 'Aircraft Drop Tank', cost: 9000, cap: 330, mass: 40, cd: 0.03, desc: "Aerodynamic and roomy." },
+    { id: 't6', name: 'Pipeline Segment', cost: 22000, cap: 650, mass: 80, cd: 0.05, desc: "Six meters of gas pipeline. Nobody will check. Probably." }
+  ],
+  booster: [
+    { id: 'b0', name: 'No Booster', cost: 0, F: 0, T: 0, mass: 0, cd: 0, desc: "No sudden surprises." },
+    { id: 'b1', name: 'New Year Fireworks', cost: 150, F: 2400, T: 1.2, mass: 6, cd: 0.02, desc: "Twelve crates of rockets, all lit at once." },
+    { id: 'b2', name: 'Fire Extinguishers', cost: 650, F: 3500, T: 2.5, mass: 28, cd: 0.04, desc: "Four red cylinders and a lot of foam." },
+    { id: 'b3', name: 'Weather Rocket', cost: 2000, F: 7000, T: 3, mass: 30, cd: 0.04, desc: "From the meteorological station. Forecast: sudden." },
+    { id: 'b4', name: 'Sounding Rocket Motor', cost: 7000, F: 15000, T: 4, mass: 55, cd: 0.05, desc: "Built to measure the upper atmosphere. Now it visits it." },
+    { id: 'b5', name: 'Institute Solid Booster', cost: 18000, F: 30000, T: 5, mass: 90, cd: 0.06, desc: "Signed out of storage under the name 'Potato Research'." }
+  ],
+  gadget: [
+    { id: 'g1', name: "Belka's Goggles", cost: 400, desc: "Belka spots rubles from further away. Bigger pickup radius." },
+    { id: 'g2', name: "Grandmother's Abacus", cost: 1200, desc: "Counts more carefully. +25% rubles every flight." },
+    { id: 'g3', name: 'Washing-Machine Gyro', cost: 1800, desc: "Spin cycle stabilizer. Faster, steadier steering." },
+    { id: 'g4', name: 'Thermos of Tea', cost: 2500, desc: "+2 hull points. Morale is structural." },
+    { id: 'g5', name: 'Tinfoil Radar Jammer', cost: 4500, desc: "Patrol drones lose track of you." },
+    { id: 'g6', name: 'Spare Booster Charge', cost: 9000, desc: "Fire your booster twice per flight." }
+  ]
+};
+
+function partOf(cat, id) { return PARTS[cat].find(p => p.id === id) || PARTS[cat][0]; }
+
+function buildCfg(equip, gadgets) {
+  const ramp = partOf('ramp', equip.ramp), hull = partOf('hull', equip.hull), w = partOf('wings', equip.wings),
+    e = partOf('engine', equip.engine), t = partOf('tank', equip.tank), b = partOf('booster', equip.booster);
+  const g = new Set(gadgets || []);
+  return {
+    ramp, hull, wing: w, engine: e, tank: t, booster: b, gadgets: g,
+    dry: 75 + 18 + hull.mass + w.mass + e.mass + t.mass + b.mass,
+    cdA: hull.cd + w.cd + e.cd + t.cd + b.cd,
+    S: w.S, k: w.k, vmax: w.vmax,
+    thrust: t.cap > 0 ? e.thrust : 0, pv: e.pv, burn: e.burn, fuelCap: t.cap,
+    boostF: b.F, boostT: b.T, boostCharges: b.F ? (g.has('g6') ? 2 : 1) : 0,
+    hp: hull.hp + (g.has('g4') ? 2 : 0), turn: g.has('g3') ? 2.3 : 1.7, stab: g.has('g3') ? 2.3 : 1.5,
+    magnet: g.has('g1') ? 2 : 1, cashMult: g.has('g2') ? 1.25 : 1, jammer: g.has('g5')
+  };
+}
+
+// ---------- terrain ----------
+function hash(n) {
+  n = (n | 0) ^ 0x2c1b3c6d; n = Math.imul(n ^ (n >>> 16), 0x85ebca6b); n = Math.imul(n ^ (n >>> 13), 0xc2b2ae35); n ^= n >>> 16;
+  return (n >>> 0) / 4294967296;
+}
+function island(x, a, b, H, seed) {
+  const mid = (a + b) / 2, half = (b - a) / 2, u = (x - mid) / half;
+  if (Math.abs(u) >= 1) return -1;
+  const base = 1 - Math.pow(Math.abs(u), 5);
+  const bump = 0.05 * Math.sin(x * 0.0035 + seed) + 0.025 * Math.sin(x * 0.013 + seed * 2);
+  return Math.max(0, H * base * (0.93 + bump));
+}
+function floeAt(x) {
+  if (x < SHELF || x > ALASKA - 150) return false;
+  if (x > BIGD[0] - 300 && x < LITD[1] + 300) return false;
+  const seg = 160, k = Math.floor(x / seg);
+  const dens = x < 8000 ? 0.42 : x < 20000 ? 0.3 : 0.2;
+  if (hash(k * 3 + 1) > dens) return false;
+  const s = k * seg + hash(k * 3 + 2) * 50, len = 35 + hash(k * 3 + 3) * 75;
+  return x >= s && x <= s + len;
+}
+function terrain(x) {
+  if (x < 0) return { h: PLATEAU, t: 'snow' };
+  if (x < SHORE) return { h: 0.6 + (PLATEAU - 0.6) * Math.pow(1 - x / SHORE, 1.6), t: 'snow' };
+  if (x < SHELF) return { h: 0.6, t: 'ice' };
+  if (x >= ALASKA) {
+    const r = Math.min(1, (x - ALASKA) / 300);
+    return { h: 0.6 + Math.min(40, (x - ALASKA) * 0.035) + r * 1.5 * (1 + Math.sin(x * 0.008)), t: 'tundra' };
+  }
+  let ih = island(x, BIGD[0], BIGD[1], 505, 1.3); if (ih >= 0) return { h: ih, t: 'rock', isl: 'big' };
+  ih = island(x, LITD[0], LITD[1], 480, 4.1); if (ih >= 0) return { h: ih, t: 'rock', isl: 'little' };
+  if (floeAt(x)) return { h: 0.6, t: 'ice' };
+  return { h: 0, t: 'water' };
+}
+function slopeAt(x) { return (terrain(x + 0.5).h - terrain(x - 0.5).h); }
+
+// ---------- physics ----------
+const wrap = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+function clAt(alpha) {
+  let a = wrap(alpha);
+  if (Math.abs(a) > Math.PI / 2) a = wrap(a + Math.PI);
+  const st = 0.28, aa = Math.abs(a);
+  if (aa <= st) return 4 * a;
+  return Math.sign(a) * 4 * st * Math.max(0.2, 1 - (aa - st) * 1.4);
+}
+
+function newFlight(cfg) {
+  const a = cfg.ramp.angle * Math.PI / 180;
+  return {
+    x: 0, y: PLATEAU + 2.5, vx: cfg.ramp.speed * Math.cos(a), vy: cfg.ramp.speed * Math.sin(a), th: a,
+    fuel: cfg.fuelCap, hp: cfg.hp, boostT: 0, charges: cfg.boostCharges, grounded: false, wings: cfg.S > 0,
+    skips: 0, air: 0, t: 0, maxX: 0, maxY: PLATEAU + 2.5, maxV: cfg.ramp.speed, done: false, end: null, endInfo: '',
+    events: [], stopT: 0, thrusting: false, invT: 0, invMax: 0, rotAcc: 0, loops: 0, flags: {}, ground: null,
+    usedEngine: false, lastHit: -9, alpha: 0, stress: 0
+  };
+}
+
+function step(s, cfg, inp, dt) {
+  if (s.done) return;
+  s.t += dt;
+  const ev = (n, d) => s.events.push({ n, d });
+  const alive = s.hp > 0;
+  if (inp.boost && s.charges > 0 && s.boostT <= 0 && alive && cfg.boostF > 0) { s.charges--; s.boostT = cfg.boostT; ev('boost'); }
+  let v = Math.hypot(s.vx, s.vy);
+  const rho = 1.2 * Math.exp(-Math.max(0, s.y) / HSCALE);
+  const phi = Math.atan2(s.vy, s.vx);
+  const prevTh = s.th;
+  if (!s.grounded) {
+    s.th += inp.rot * cfg.turn * dt;
+    const da = wrap(phi - s.th);
+    const k = (inp.rot ? 0.3 : 1) * cfg.stab * Math.min(1, v / 35);
+    s.th += da * Math.min(1, k * dt);
+  }
+  // aero
+  let Fx = 0, Fy = 0;
+  const alpha = wrap(s.th - phi); s.alpha = alpha;
+  if (v > 0.01) {
+    const S = (s.wings && alive ? cfg.S : 0) + 0.3;
+    const cl = clAt(alpha), q = 0.5 * rho * v * v, sa = Math.sin(alpha);
+    const L = q * S * cl;
+    const D = q * (cfg.cdA + S * (cfg.k + 0.02) * cl * cl + (S * 0.9 + 0.5) * sa * sa);
+    const ux = s.vx / v, uy = s.vy / v;
+    Fx += -uy * L - ux * D; Fy += ux * L - uy * D;
+  }
+  // propulsion
+  s.thrusting = false;
+  if (alive && inp.thrust && cfg.thrust > 0 && s.fuel > 0) {
+    let T = cfg.thrust;
+    if (cfg.pv > 0) T *= clamp(1 - (v / cfg.pv) * (v / cfg.pv), 0.12, 1);
+    else T *= 0.85 + 0.15 * Math.min(1, v / 250);
+    s.fuel = Math.max(0, s.fuel - cfg.burn * dt);
+    Fx += T * Math.cos(s.th); Fy += T * Math.sin(s.th); s.thrusting = true; s.usedEngine = true;
+  }
+  if (s.boostT > 0) {
+    if (alive) { Fx += cfg.boostF * Math.cos(s.th); Fy += cfg.boostF * Math.sin(s.th); }
+    s.boostT -= dt; s.usedEngine = true;
+  }
+  const M = cfg.dry + s.fuel * 0.8;
+  let ax = Fx / M, ay = Fy / M - G;
+
+  if (s.grounded) {
+    const tr = terrain(s.x), dh = slopeAt(s.x);
+    const tl = Math.hypot(1, dh), tx = 1 / tl, ty = dh / tl, nx = -ty, ny = tx;
+    const an = ax * nx + ay * ny;
+    if (an > 0.3) { s.grounded = false; s.y += 0.05; ev('takeoff'); }
+    else {
+      let vt = s.vx * tx + s.vy * ty, at = ax * tx + ay * ty;
+      const fr = (MU[tr.t] || 0.1) * Math.max(0, -an);
+      if (Math.abs(vt) > 0.05) { at -= Math.sign(vt) * fr; const nv = vt + at * dt; if (Math.sign(nv) !== Math.sign(vt) && Math.abs(at) < fr * 1.01 + 1e-6 && !s.thrusting) vt = 0; else vt = nv; }
+      else if (Math.abs(at) > fr) vt += (at - Math.sign(at) * fr) * dt;
+      s.vx = vt * tx; s.vy = vt * ty; s.x += s.vx * dt;
+      const nt = terrain(s.x);
+      s.ground = nt.t;
+      // pitch on ground: follow slope, player may lift nose
+      const base = Math.atan2(ty, tx);
+      s.th = clamp(s.th + inp.rot * cfg.turn * dt, base - 0.05, base + 0.4);
+      if (!inp.rot) s.th += (base - s.th) * Math.min(1, 4 * dt);
+      if (nt.t === 'water') { s.grounded = false; s.y = Math.max(s.y, 0.6); }
+      else if (Math.abs(slopeAt(s.x)) > 1.1 && nt.t === 'rock') { s.grounded = false; s.y = nt.h + 0.1; }
+      else s.y = nt.h;
+      if (Math.abs(vt) < 0.6 && s.boostT <= 0) { s.stopT += dt; if (s.stopT > (s.thrusting ? 4 : 1)) return finish(s, 'stopped'); }
+      else s.stopT = 0;
+    }
+  } else {
+    s.vx += ax * dt; s.vy += ay * dt; s.x += s.vx * dt; s.y += s.vy * dt;
+    s.air += dt;
+    const tr = terrain(s.x);
+    if (s.y <= tr.h) contact(s, cfg, tr, ev);
+  }
+  if (s.done) return;
+  v = Math.hypot(s.vx, s.vy);
+  // wing stress
+  s.stress = s.wings ? v / cfg.vmax : 0;
+  if (s.wings && v > cfg.vmax) { s.wings = false; s.hp -= 1; ev('wingbreak'); }
+  if (s.hp <= 0 && !s.flags.wreck) { s.flags.wreck = true; ev('wreck'); }
+  // records / milestones
+  if (s.x > s.maxX) s.maxX = s.x;
+  if (s.y > s.maxY) s.maxY = s.y;
+  if (v > s.maxV) s.maxV = v;
+  if (!s.flags.sonic && v > 343) { s.flags.sonic = true; ev('sonic'); }
+  if (!s.flags.dateline && s.x > DATELINE) { s.flags.dateline = true; ev('dateline'); }
+  if (!s.flags.alaska && s.x > ALASKA) { s.flags.alaska = true; ev('alaska'); }
+  if (!s.flags.water && s.x > SHELF) { s.flags.water = true; ev('openwater'); }
+  // inverted / loops
+  if (!s.grounded && Math.cos(s.th) < -0.5 && Math.abs(Math.sin(s.th)) < 0.9) { s.invT += dt; s.invMax = Math.max(s.invMax, s.invT); } else s.invT = 0;
+  if (!s.grounded) {
+    s.rotAcc += wrap(s.th - prevTh);
+    if (Math.abs(s.rotAcc) >= Math.PI * 2) { s.loops++; s.rotAcc = 0; ev('loop'); }
+  } else s.rotAcc = 0;
+  if (s.y > 60000) s.vy = Math.min(s.vy, 0);
+}
+
+function contact(s, cfg, tr, ev) {
+  const dh = slopeAt(s.x), tl = Math.hypot(1, dh), tx = 1 / tl, ty = dh / tl, nx = -ty, ny = tx;
+  let vn = s.vx * nx + s.vy * ny, vt = s.vx * tx + s.vy * ty;
+  const v = Math.hypot(s.vx, s.vy);
+  if (tr.t === 'water') {
+    if (v > 18 && -s.vy < 0.42 * Math.abs(s.vx) && s.vx > 0 && s.skips < 8) {
+      s.vy = -s.vy * 0.55 + 1.5; s.vx *= 0.8; s.y = 0.05; s.skips++; ev('skip', s.skips);
+      return;
+    }
+    return finish(s, 'splash');
+  }
+  const imp = -vn;
+  if (tr.t === 'rock' && (Math.abs(dh) > 0.9 || imp > 30)) return finish(s, 'crash', tr.isl);
+  if (imp > 75) return finish(s, 'crash', tr.t);
+  s.y = tr.h;
+  if (imp > 14) {
+    if (imp > 26) { s.hp -= 1; ev('hit', 'ground'); } else ev('bump');
+    vn = imp * 0.28;
+    vt = Math.sign(vt) * Math.max(0, Math.abs(vt) - imp * 0.3);
+    s.vx = vt * tx + vn * nx; s.vy = vt * ty + vn * ny; s.y = tr.h + 0.05;
+  } else {
+    vt = Math.sign(vt) * Math.max(0, Math.abs(vt) - imp * 0.4);
+    s.vx = vt * tx; s.vy = vt * ty; s.grounded = true; s.ground = tr.t; ev('land', tr.t);
+  }
+}
+
+function finish(s, why, info) {
+  s.done = true; s.end = why; s.endInfo = info || '';
+  if (why === 'stopped') { const tr = terrain(s.x); s.endInfo = tr.isl || tr.t; }
+}
+
+function payout(s, cfg, pickups) {
+  const lines = {
+    dist: Math.round(Math.max(0, s.maxX) * 0.2),
+    alt: Math.round(Math.max(0, s.maxY) * 0.4),
+    speed: Math.round(s.maxV * 1.2),
+    air: Math.round(s.air * 3),
+    pick: Math.round(pickups || 0)
+  };
+  const sub = lines.dist + lines.alt + lines.speed + lines.air + lines.pick;
+  lines.bonus = Math.round(sub * (cfg.cashMult - 1));
+  lines.total = sub + lines.bonus;
+  return lines;
+}
+
+// (node export)
+if (false) module.exports = { HSCALE, PARTS, buildCfg, newFlight, step, terrain, payout, ALASKA, BIGD, LITD };
+
+// ================= STORY & PROGRESSION DATA =================
+const CATS = [
+  { id: 'ramp', label: 'Ramp' }, { id: 'hull', label: 'Hull' }, { id: 'wings', label: 'Wings' }, { id: 'engine', label: 'Engine' },
+  { id: 'tank', label: 'Fuel' }, { id: 'booster', label: 'Booster' }, { id: 'gadget', label: 'Gadgets' }
+];
+const GOALS = [
+  { id: 'dist', label: 'Distance', unit: 'km', key: 'dist', tiers: [300, 1000, 3000, 10000, 35000, 82000], rew: [80, 250, 700, 2000, 6000, 15000], fmt: v => fmtDist(v) },
+  { id: 'alt', label: 'Altitude', unit: 'm', key: 'alt', tiers: [80, 250, 800, 2500, 8000, 20000], rew: [60, 200, 600, 1800, 5000, 12000], fmt: v => fmtAlt(v) },
+  { id: 'speed', label: 'Top speed', unit: 'm/s', key: 'speed', tiers: [30, 60, 120, 220, 343, 700], rew: [60, 200, 600, 1800, 5000, 12000], fmt: v => v + ' m/s' },
+  { id: 'air', label: 'Airtime', unit: 's', key: 'air', tiers: [8, 20, 45, 90, 180, 300], rew: [50, 150, 500, 1500, 4000, 9000], fmt: v => v + ' s' },
+  { id: 'cash', label: 'Rubles in one flight', unit: '', key: 'cash', tiers: [200, 800, 2500, 7000, 15000, 30000], rew: [100, 300, 800, 2000, 5000, 10000], fmt: v => fmtNum(v) + ' ₽' }
+];
+const ACH = [
+  { id: 'first', name: 'Liftoff', desc: 'Complete your first flight.', rew: 50 },
+  { id: 'splash', name: 'Polar Plunge', desc: 'End a flight in the Bering Sea.', rew: 100 },
+  { id: 'skip3', name: 'Skipping Stone', desc: 'Skip off the water 3 times in one flight.', rew: 300 },
+  { id: 'gull', name: 'Birdstrike', desc: 'Fly into a seagull. Sorry, seagull.', rew: 100 },
+  { id: 'drone', name: 'Netted', desc: 'Get tangled by a patrol drone.', rew: 200 },
+  { id: 'wings', name: 'Speed Limit', desc: 'Fly so fast your wings tear off.', rew: 200 },
+  { id: 'wreck', name: 'Scrap Metal', desc: 'Lose every hull point in one flight.', rew: 150 },
+  { id: 'loop', name: 'Loop-the-Loop', desc: 'Complete a full loop in the air.', rew: 400 },
+  { id: 'inverted', name: 'Upside Down', desc: 'Fly inverted for 3 seconds.', rew: 300 },
+  { id: 'clouds', name: 'Above the Clouds', desc: 'Climb above 3,000 m.', rew: 1000 },
+  { id: 'glider', name: 'Pure Glider', desc: 'Fly 5 km without using an engine or booster.', rew: 2500 },
+  { id: 'sonic', name: 'Sound Barrier', desc: 'Go faster than 343 m/s.', rew: 2000 },
+  { id: 'samovar', name: 'Golden Samovar', desc: 'Catch a rare golden samovar.', rew: 1000 },
+  { id: 'bigd', name: 'Tomorrow Island', desc: 'Land on top of Big Diomede.', rew: 1500 },
+  { id: 'dateline', name: 'Yesterday Once More', desc: 'Cross the International Date Line.', rew: 1500 },
+  { id: 'littled', name: 'Technically America', desc: 'Land on Little Diomede, Alaska.', rew: 3000 },
+  { id: 'strato', name: 'Stratosphere', desc: 'Climb above 15,000 m.', rew: 5000 },
+  { id: 'pages', name: 'Collected Works', desc: 'Find all 12 research pages.', rew: 5000 },
+  { id: 'alaska', name: 'Freedom', desc: 'Reach mainland Alaska.', rew: 0 },
+  { id: 'maxed', name: 'Fully Equipped', desc: 'Own the best part in every category.', rew: 0 }
+];
+const PAGES = [
+  { x: 200, y: 66, hint: 'just above the hill', text: "Belka was a stray outside the Institute. She ate my sandwich, then my notes. We have been colleagues ever since." },
+  { x: 880, y: 4, hint: 'on the shore ice', text: "Alloy 7-K: half the weight of aluminum, twice as stubborn. The Ministry called it a threat to the potato program." },
+  { x: 2600, y: 140, hint: 'past the ice shelf', text: "Lift is one half rho v squared, times area, times the lift coefficient. A bathtub's lift coefficient is approximately nothing." },
+  { x: 6000, y: 420, hint: 'around 6 km, a little high', text: "My sister Natasha moved to Anchorage in 1998. Every winter she sends a postcard of a moose. I have twenty-six moose." },
+  { x: 12500, y: 950, hint: 'around 12 km, high up', text: "They took the lab key on a Tuesday. On Wednesday I took the garage key. Nobody asked for that one back." },
+  { x: 20000, y: 2600, hint: 'around 20 km, in the clouds', text: "From up here the border is invisible. The sea does not know which country it belongs to, and it does not care." },
+  { x: 28000, y: 5200, hint: 'around 28 km, very high', text: "Belka sleeps through turbulence. She wakes for exactly two things: sausages and seagulls." },
+  { x: 37300, y: 620, hint: 'right above Big Diomede', text: "Big Diomede. The border guards waved. I waved back. I think it was the same kind of wave. I am not sure." },
+  { x: 41500, y: 260, hint: 'on the Date Line', text: "Here today becomes yesterday. If I fly back and forth fast enough, can I return to before the Ministry's letter?" },
+  { x: 55000, y: 9000, hint: 'around 55 km, extremely high', text: "Note for the next scientist: always pack two scarves. The second scarf is for the dog." },
+  { x: 70000, y: 1800, hint: 'around 70 km', text: "I can see the Alaskan hills. They look exactly like ours. Hills do not have passports either." },
+  { x: 82600, y: 45, hint: 'on the Alaskan shore', text: "If you are reading this, I made it. Natasha, put the kettle on. Belka would like a sausage." }
+];
+// one-time diary entries, queued by events
+const DIARY = {
+  firstflight: { kind: 'diary', title: 'Diary — Day 1', text: "The bathtub flies like a bathtub. Belka said nothing, but she looked at the ironing boards for a long time." },
+  splash: { kind: 'diary', title: 'Diary', text: "Note: the Bering Sea is cold. Write that down twice. Then dry the dog." },
+  openwater: { kind: 'diary', title: 'Diary', text: "We cleared the shore ice. From here it is open water all the way to Alaska, apart from two islands and one date line." },
+  drone: { kind: 'diary', title: 'Diary', text: "The border service has drones now. They carry nets, like fishermen who are very angry about birds." },
+  wings: { kind: 'diary', title: 'Diary', text: "Every wing has a speed limit. I have now learned this personally, at high speed." },
+  km10: { kind: 'diary', title: 'Diary', text: "Ten kilometers! From up there the station looks like a matchbox. The village has stopped laughing and started betting." },
+  bigd: { kind: 'diary', title: 'Diary', text: "Big Diomede is ahead. Five hundred meters of cliff. We need to fly over it, not into it." },
+  dateline: { kind: 'diary', title: 'Diary', text: "We crossed the International Date Line and it became yesterday. Belka is now one day younger. She does not look grateful." },
+  littled: { kind: 'diary', title: 'Diary', text: "We landed on Little Diomede. Technically, this is America. A kind man gave us tea and said the mail plane is full until spring. The mainland is 40 km further. We fly on." },
+  maxed: { kind: 'diary', title: 'Diary', text: "Every part in the garage is the best part. The garage itself is now mostly air." }
+};
+const MEMOS = [
+  "Citizens are reminded that bathtubs are for bathing.",
+  "Reports of a flying sauna barrel are false. Do not discuss the flying sauna barrel.",
+  "The sky is closed for maintenance until further notice.",
+  "Potato storage productivity is up 400%. Science is down 100%. Both are victories.",
+  "Missing: one dacha roof, forty buckets, one goat's door. Return them to the cooperative.",
+  "Looking east is discouraged. Look north. North has bears.",
+  "Anyone with information about the leaf-blower aviator should complete Form 27-B in triplicate.",
+  "Fireworks are permitted only on approved holidays. Today is not an approved holiday.",
+  "The Institute storage room inventory is complete. Nothing is missing. Do not check.",
+  "The postman's snowmobile was not stolen. It volunteered.",
+  "Weather balloons are for weather. Rockets are for nothing. Please return the rocket.",
+  "Dogs may not wear goggles without a permit. Permits are not available."
+];
+const QUOTES = {
+  splash: ["Cold. So cold. Belka, write that down.", "The sea has opinions about our design.", "Wet again. Science is a damp profession.", "Belka is doing the shake. Everyone stand back."],
+  snow: ["Still in Russia. Still on the hill. Still optimistic.", "A lovely sled ride. Not an escape.", "We need more speed. Or more ramp. Or both."],
+  ice: ["The ice ends somewhere. We will find out where.", "Good slide! Now we need to fly.", "Belka enjoyed that. I did not."],
+  crash: ["The island did not move. I will remember that.", "Ow. Note: rocks are harder than bathtubs.", "Everything hurts, including the bathtub."],
+  big: ["The border guards are coming. Back to the garage, quickly!", "Tomorrow Island. Not tomorrow, then."],
+  little: ["Technically America! Practically, still forty kilometers to go."],
+  record: ["Further than ever! More rubles, more parts!", "A new record! Belka, fetch the wrench.", "Did you see that? We were practically a bird."],
+  abort: ["We will call that a test flight."]
+};
+// helpers shared by UI
+function fmtNum(n) { return Math.round(n).toLocaleString('en-US'); }
+function fmtDist(m) { return m < 1000 ? Math.round(m) + ' m' : (m / 1000).toFixed(m < 10000 ? 2 : 1) + ' km'; }
+function fmtAlt(m) { return fmtNum(m) + ' m'; }
+
+// ================= ART: palette, portrait, craft sprites, icons =================
+const PAL = {
+  ink: '#14182a', night: '#0b0e1c',
+  fur: '#6e4b34', furL: '#93694a', furD: '#4a3122', faded: '#b08a66',
+  skin: '#f1c49e', skinS: '#d39a74', nose: '#e9806b', blush: '#f29b8c',
+  hair: '#e6e9ee', hairS: '#a4acba',
+  frame: '#26283a', lens: '#d6eef8', lensS: '#a6d2e6',
+  mou: '#dde1e8', mouS: '#a9b0be', mouth: '#5a2430', teeth: '#ffffff', tongue: '#e0646a', lip: '#9c4a4a',
+  scarf: '#cf3b33', scarfS: '#992b25', stripe: '#efe4c8',
+  coat: '#40604f', coatD: '#2b4337',
+  belka: '#f3f0e7', belkaS: '#cbc2ae', belkaT: '#d9a46b',
+  enamel: '#f4f6f8', enamelS: '#bdc7d4', gold: '#e8ad3e', chrome: '#b8c4d0',
+  wood: '#a86a3c', woodD: '#74462a', woodL: '#c98a54', iron: '#474b58',
+  beige: '#d7c49a', beigeD: '#a4916c', rust: '#a4553a',
+  white: '#f3f5f7', whiteS: '#c4cdda', red: '#d8433a', redD: '#992c25',
+  glass: '#8fd3ea', glassD: '#5aa6c2', silver: '#c9d1db', silverD: '#8b95a5', shield: '#5b3a2a',
+  graph: '#2f3443', graphL: '#4a5166', ice: '#7fd6e8',
+  orange: '#e8752a', orangeD: '#b5541a', grey: '#7d8594', greyD: '#535a68', olive: '#6c7a3d', oliveD: '#4b5629',
+  yellow: '#f2c84b', yellowD: '#c29a2a', black: '#1d1f27', blue: '#3d6fb6', blueD: '#2a4f86', green: '#4f9a52', greenD: '#356b38',
+  flame1: '#fff6c2', flame2: '#ffc23d', flame3: '#ff7a2a', flame4: '#d8433a', pink: '#e98aa0'
+};
+function P(c, x, y, w, h, col) { c.fillStyle = col; c.fillRect(x, y, w, h); }
+
+// ---------- 32x32 portrait of Dr. Lev Orlov ----------
+// expr: calm happy grin scared scream dizzy sad determined wind
+function drawFace(c, ox, oy, expr, t, wind) {
+  const p = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(ox + x, oy + y, w, h); };
+  const windy = wind > 0.35 || expr === 'wind';
+  const f = windy ? (Math.floor(t * 14) % 2) : 0;
+  const bob = expr === 'scream' ? (Math.floor(t * 20) % 2) : 0;
+  // scarf tail behind
+  if (windy) { p(24, 27 + f, 8, 2, PAL.scarf); p(28, 26 - f, 4, 2, PAL.scarfS); }
+  // ear flaps
+  if (windy) {
+    p(0, 8 - f, 7, 4, PAL.fur); p(0, 8 - f, 7, 1, PAL.furL); p(0, 11 - f, 2, 1, PAL.furD);
+    p(25, 8 + f, 7, 4, PAL.fur); p(25, 8 + f, 7, 1, PAL.furL); p(30, 11 + f, 2, 1, PAL.furD);
+  } else {
+    p(4, 11, 4, 11, PAL.fur); p(4, 11, 1, 11, PAL.furD); p(5, 21, 2, 1, PAL.furD);
+    p(24, 11, 4, 11, PAL.fur); p(27, 11, 1, 11, PAL.furD); p(25, 21, 2, 1, PAL.furD);
+    p(6, 22, 1, 3, PAL.furD); p(25, 22, 1, 3, PAL.furD);
+  }
+  // wild hair tufts
+  const hx = windy ? f : 0;
+  p(3 - hx, 21, 4, 2, PAL.hair); p(2 - hx, 23, 3, 1, PAL.hairS); p(5, 23, 2, 2, PAL.hair);
+  p(25 + hx, 21, 4, 2, PAL.hair); p(27 + hx, 23, 3, 1, PAL.hairS); p(25, 23, 2, 2, PAL.hair);
+  // face
+  p(8, 11, 16, 15 + bob, PAL.skin); p(7, 13, 1, 10, PAL.skin); p(24, 13, 1, 10, PAL.skin);
+  p(9, 26 + bob, 14, 1, PAL.skin); p(10, 27 + bob, 12, 1, PAL.skinS);
+  if (windy) { p(6, 17 + f, 1, 5, PAL.skin); p(25, 17 + f, 1, 5, PAL.skin); }
+  // hat
+  p(9, 1, 14, 1, PAL.fur); p(8, 2, 16, 7, PAL.fur);
+  p(10, 3, 2, 1, PAL.furL); p(15, 2, 2, 1, PAL.furL); p(19, 4, 2, 1, PAL.furL); p(12, 6, 1, 1, PAL.furD); p(21, 6, 1, 1, PAL.furD);
+  p(6, 8, 20, 4, PAL.furL); p(6, 11, 20, 1, PAL.furD); p(6, 8, 20, 1, '#a57a56');
+  // faded patch where a star badge used to be
+  p(15, 8, 2, 1, PAL.faded); p(14, 9, 4, 1, PAL.faded); p(15, 10, 1, 1, PAL.faded); p(16, 10, 1, 1, PAL.faded);
+  // brows: [outerY, innerY]
+  const B = { calm: [13, 13], happy: [12, 12], grin: [12, 13], scared: [13, 11], scream: [11, 10], dizzy: [12, 13], sad: [13, 11], determined: [12, 14], wind: [13, 13] }[expr] || [13, 13];
+  p(8, B[0], 3, 2, PAL.hair); p(11, B[1], 3, 2, PAL.hair); p(8, B[0] + 1, 3, 1, PAL.hairS);
+  p(21, B[0], 3, 2, PAL.hair); p(18, B[1], 3, 2, PAL.hair); p(21, B[0] + 1, 3, 1, PAL.hairS);
+  // glasses
+  const lens = (x) => {
+    p(x + 1, 14, 5, 1, PAL.frame); p(x + 1, 20, 5, 1, PAL.frame); p(x, 15, 1, 5, PAL.frame); p(x + 6, 15, 1, 5, PAL.frame);
+    p(x + 1, 15, 5, 5, PAL.lens); p(x + 1, 19, 5, 1, PAL.lensS);
+  };
+  lens(8); lens(17); p(15, 16, 2, 1, PAL.frame);
+  // eyes (lens interiors at x 9..13 and 18..22, y 15..19)
+  const eye = (x, mir) => {
+    const I = PAL.frame;
+    if (expr === 'happy' || expr === 'grin') { p(x, 18, 1, 1, I); p(x + 1, 17, 3, 1, I); p(x + 4, 18, 1, 1, I); }
+    else if (expr === 'dizzy') { const k = Math.floor(t * 8) % 2; p(x + 1, 16, 3, 1, I); p(x + 1, 18, 3, 1, I); p(x + (k ? 1 : 3), 17, 1, 1, I); p(x + 2, 17, 1, 1, I); }
+    else if (expr === 'scared' || expr === 'scream') { p(x + 2, 17, 1, 1, I); p(x + 1, 15, 3, 1, '#ffffff'); }
+    else if (expr === 'sad') { p(x + 1 + (mir ? 1 : 0), 18, 2, 1, I); p(x, 16, 5, 1, PAL.lensS); }
+    else if (expr === 'determined') { p(x, 15, 5, 2, PAL.skinS); p(x + 1 + (mir ? 0 : 1), 17, 2, 2, I); }
+    else if (expr === 'wind') { p(x, 17, 5, 1, I); }
+    else { const lk = Math.sin(t * 0.7) > 0.6 ? 1 : 0; p(x + 1 + lk, 16, 2, 2, I); p(x + 1 + lk, 16, 1, 1, '#ffffff'); }
+  };
+  eye(9, false); eye(18, true);
+  p(10, 15, 1, 1, '#ffffff'); p(19, 15, 1, 1, '#ffffff');
+  // nose (red from cold)
+  p(15, 19, 2, 2, PAL.skinS); p(14, 21, 4, 2, PAL.nose); p(15, 21, 1, 1, '#f6a896');
+  if (expr === 'happy' || expr === 'grin') { p(9, 21, 2, 1, PAL.blush); p(21, 21, 2, 1, PAL.blush); }
+  // mouth (under moustache)
+  const m = expr;
+  if (m === 'happy') { p(12, 24, 8, 2, PAL.mouth); p(13, 24, 6, 1, PAL.teeth); p(11, 23, 1, 2, PAL.mouth); p(20, 23, 1, 2, PAL.mouth); }
+  else if (m === 'grin') { p(10, 24, 12, 3, PAL.mouth); p(11, 24, 10, 1, PAL.teeth); p(12, 26, 8, 1, PAL.tongue); }
+  else if (m === 'scared') { p(14, 24, 4, 3, PAL.mouth); p(15, 26, 2, 1, PAL.tongue); }
+  else if (m === 'scream') { p(12, 24, 8, 5 + bob, PAL.mouth); p(13, 24, 6, 1, PAL.teeth); p(14, 27 + bob, 4, 2, PAL.tongue); }
+  else if (m === 'sad') { p(13, 25, 6, 1, PAL.lip); p(12, 26, 1, 1, PAL.lip); p(19, 26, 1, 1, PAL.lip); p(10, 21 + (Math.floor(t * 3) % 3), 1, 2, '#9fd8f0'); }
+  else if (m === 'dizzy') { p(12, 25, 2, 1, PAL.lip); p(14, 24, 2, 1, PAL.lip); p(16, 25, 2, 1, PAL.lip); p(18, 24, 2, 1, PAL.lip); }
+  else if (m === 'wind') { p(11, 24, 10, 3, PAL.mouth); p(11, 24 + f, 10, 1, PAL.teeth); }
+  else if (m === 'determined') { p(12, 24, 8, 2, PAL.teeth); p(14, 24, 1, 2, PAL.mouS); p(17, 24, 1, 2, PAL.mouS); p(12, 26, 8, 1, PAL.lip); }
+  else { p(14, 25, 4, 1, PAL.lip); }
+  // moustache
+  p(12, 21, 8, 1, PAL.mou); p(10, 22, 12, 2, PAL.mou); p(9, 23, 2, 2, PAL.mou); p(21, 23, 2, 2, PAL.mou);
+  p(11, 23, 10, 1, PAL.mouS); p(15, 22, 2, 1, PAL.mouS);
+  if (windy) { p(7, 22 + f, 2, 1, PAL.mou); p(23, 22 + f, 2, 1, PAL.mou); }
+  // sweat
+  if (m === 'scared' || m === 'scream') { const sy = Math.floor(t * 6) % 4; p(24, 13 + sy, 1, 2, '#bfe8fa'); }
+  // scarf
+  p(7, 28, 18, 4, PAL.scarf); p(7, 29, 18, 1, PAL.stripe); p(7, 31, 18, 1, PAL.scarfS); p(18, 27, 4, 5, PAL.scarfS); p(19, 28, 2, 3, PAL.scarf);
+  if (!windy) { p(20, 31, 3, 1, PAL.scarf); }
+}
+
+// ---------- tiny full-size characters ----------
+function drawLev(c, x, y, o) {
+  const w = o.wind || 0, t = o.t || 0;
+  // body
+  P(c, x - 3, y - 5, 7, 5, PAL.coat); P(c, x - 3, y - 1, 7, 1, PAL.coatD);
+  // scarf tail streaming back
+  const L = 2 + Math.round(w * 7);
+  for (let i = 0; i < L; i++) P(c, x - 4 - i, y - 5 + Math.round(Math.sin(t * 22 + i * 0.9) * w * 1.4), 1, 1, i % 3 === 2 ? PAL.stripe : PAL.scarf);
+  P(c, x - 3, y - 5, 7, 1, PAL.scarf);
+  // head
+  P(c, x - 2, y - 10, 6, 5, PAL.skin);
+  P(c, x - 3, y - 13, 8, 3, PAL.fur); P(c, x - 3, y - 11, 8, 1, PAL.furL); P(c, x - 1, y - 14, 4, 1, PAL.fur);
+  const flap = w > 0.3 ? (Math.floor(t * 14) % 2) : 0;
+  if (w > 0.3) { P(c, x - 5, y - 11 - flap, 2, 2, PAL.fur); } else P(c, x - 3, y - 10, 1, 4, PAL.fur);
+  P(c, x - 4, y - 8, 1, 2, PAL.hair);
+  // glasses + eye
+  P(c, x + 1, y - 9, 4, 2, PAL.lens); P(c, x + 1, y - 9, 4, 1, PAL.frame); P(c, x + 3, y - 8, 1, 1, PAL.frame);
+  if (o.expr === 'scared' || o.expr === 'scream') P(c, x + 2, y - 8, 1, 1, PAL.frame);
+  // nose + moustache
+  P(c, x + 4, y - 7, 1, 1, PAL.nose); P(c, x + 1, y - 6, 4, 1, PAL.mou);
+  if (o.expr === 'scream' || o.expr === 'scared') P(c, x + 2, y - 5, 2, 1, PAL.mouth);
+  if (o.expr === 'grin' || o.expr === 'happy') P(c, x + 2, y - 5, 2, 1, PAL.teeth);
+  // arm on rim
+  P(c, x + 3, y - 4, 2, 2, PAL.coatD); P(c, x + 5, y - 3, 1, 1, PAL.skin);
+}
+function drawBelka(c, x, y, o) {
+  const w = o.wind || 0, t = o.t || 0, f = Math.floor(t * 16) % 2;
+  P(c, x, y - 4, 5, 4, PAL.belka); P(c, x, y - 1, 5, 1, PAL.belkaS);
+  P(c, x + 2, y - 8, 5, 4, PAL.belka); P(c, x + 7, y - 6, 1, 2, PAL.belka); P(c, x + 7, y - 6, 1, 1, PAL.black);
+  // ears
+  if (w > 0.3) { P(c, x - 1 - f, y - 9, 3, 1, PAL.belkaT); P(c, x, y - 8 + f, 2, 1, PAL.belkaT); }
+  else { P(c, x + 2, y - 10, 1, 2, PAL.belkaT); P(c, x + 4, y - 10, 1, 2, PAL.belkaT); }
+  // goggles
+  P(c, x + 3, y - 7, 3, 1, PAL.ice); P(c, x + 2, y - 7, 1, 1, PAL.black);
+  // tongue when happy / windy
+  if (o.expr === 'happy' || o.expr === 'grin' || w > 0.5) P(c, x + 6, y - 4 + f, 1, 2, PAL.pink);
+  // tail
+  P(c, x - 2, y - 4 - (f && w < 0.3 ? 1 : 0), 2, 1, PAL.belka);
+}
+
+// ---------- craft parts (side view, nose to the right, origin = hull centre) ----------
+const HULLS = {
+  h0: { rear: -14, seat: [0, -1], top: -3, bot: 7 },
+  h1: { rear: -15, seat: [-1, -3], top: -5, bot: 5 },
+  h2: { rear: -16, seat: [-1, -2], top: -4, bot: 5 },
+  h3: { rear: -19, seat: [5, -1], top: -3, bot: 3 },
+  h4: { rear: -12, seat: null, top: -7, bot: 7 },
+  h5: { rear: -17, seat: [4, -1], top: -4, bot: 3 }
+};
+function hullBack(c, id, o) {
+  // parts of the hull that sit behind the passengers
+  if (id === 'h1') { P(c, -6, -5, 12, 1, PAL.woodD); }
+}
+function hullFront(c, id, o) {
+  const t = o.t || 0;
+  if (id === 'h0') { // bathtub
+    P(c, -14, -3, 28, 1, PAL.white); P(c, -14, -2, 28, 1, PAL.enamelS);
+    P(c, -13, -1, 26, 5, PAL.enamel); P(c, -11, 4, 22, 2, PAL.enamel); P(c, -9, 6, 18, 1, PAL.enamelS);
+    P(c, -13, 2, 26, 1, '#e3e8ee'); P(c, -11, 5, 22, 1, PAL.enamelS);
+    P(c, 10, 0, 2, 1, PAL.gold); // plug chain
+    P(c, -10, 7, 3, 2, PAL.gold); P(c, 7, 7, 3, 2, PAL.gold); P(c, -11, 8, 2, 1, PAL.gold); P(c, 9, 8, 2, 1, PAL.gold);
+    P(c, -13, -6, 1, 3, PAL.chrome); P(c, -13, -6, 3, 1, PAL.chrome); P(c, -11, -5, 1, 1, PAL.chrome);
+  } else if (id === 'h1') { // banya barrel
+    P(c, -14, -4, 28, 9, PAL.wood); P(c, -15, -2, 1, 5, PAL.wood); P(c, 14, -2, 1, 5, PAL.wood);
+    P(c, -14, -1, 28, 1, PAL.woodD); P(c, -14, 2, 28, 1, PAL.woodD); P(c, -14, -4, 28, 1, PAL.woodL);
+    P(c, -10, -4, 2, 9, PAL.iron); P(c, 8, -4, 2, 9, PAL.iron); P(c, -12, 4, 24, 1, PAL.woodD);
+    P(c, 12, -1, 2, 2, PAL.woodD);
+  } else if (id === 'h2') { // sedan shell
+    P(c, -16, -2, 32, 6, PAL.beige); P(c, 9, -3, 7, 1, PAL.beige); P(c, -16, -4, 6, 2, PAL.beige);
+    P(c, -16, 3, 32, 1, PAL.beigeD); P(c, 6, -7, 1, 5, PAL.beigeD); P(c, 7, -6, 1, 4, PAL.glass);
+    P(c, -12, 2, 6, 3, PAL.ink); P(c, 6, 2, 6, 3, PAL.ink); P(c, 15, -1, 1, 1, PAL.yellow); P(c, -16, -1, 1, 1, PAL.red);
+    P(c, -4, 0, 2, 1, PAL.rust); P(c, 2, 2, 1, 1, PAL.rust); P(c, -9, -1, 1, 1, PAL.rust); P(c, -1, -2, 1, 2, PAL.beigeD);
+  } else if (id === 'h3') { // glider fuselage
+    P(c, -16, -1, 32, 4, PAL.white); P(c, 16, 0, 3, 2, PAL.white); P(c, 19, 1, 1, 1, PAL.whiteS);
+    P(c, -16, 2, 32, 1, PAL.whiteS); P(c, -19, -8, 4, 9, PAL.white); P(c, -19, -8, 4, 2, PAL.red); P(c, -20, -1, 4, 2, PAL.white);
+    P(c, -6, 0, 8, 1, PAL.red); P(c, 9, -3, 7, 2, PAL.glass); P(c, 9, -3, 7, 1, '#c7eef9');
+  } else if (id === 'h4') { // capsule (cone, nose right)
+    P(c, -12, -7, 3, 15, PAL.shield); P(c, -12, -7, 1, 15, '#3d2519');
+    for (let k = 0; k < 16; k++) { const h = Math.max(2, 14 - k); P(c, -9 + k, -Math.floor(h / 2), 1, h, k % 4 === 0 ? PAL.silverD : PAL.silver); }
+    P(c, 7, -1, 3, 2, PAL.silverD);
+    P(c, -4, -3, 5, 5, PAL.frame); P(c, -3, -2, 3, 3, PAL.glass);
+    // Lev peeking through the porthole
+    if (!o.empty) P(c, -3, -2, 3, 3, PAL.skin); if (!o.empty) { P(c, -3, -2, 3, 1, PAL.fur); P(c, -2, -1, 2, 1, PAL.lens); P(c, -3, 0, 3, 1, PAL.mou); }
+    P(c, 3, -2, 3, 3, PAL.frame); P(c, 4, -1, 1, 1, PAL.belka);
+  } else if (id === 'h5') { // composite pod
+    P(c, -17, -2, 34, 5, PAL.graph); P(c, 17, -1, 3, 3, PAL.graph); P(c, 20, 0, 2, 1, PAL.graphL);
+    P(c, -17, 1, 34, 1, PAL.ice); P(c, -17, -2, 34, 1, PAL.graphL); P(c, -19, -6, 4, 5, PAL.graph); P(c, -19, -6, 4, 1, PAL.ice);
+    c.globalAlpha = 0.55; P(c, -1, -7, 11, 5, PAL.glass); c.globalAlpha = 1; P(c, -1, -7, 11, 1, '#c7eef9');
+    P(c, -10, 3, 1, 1, PAL.yellow);
+  }
+}
+function drawWing(c, id, o, layer) {
+  const t = o.t || 0;
+  if (id === 'w1') { // ironing boards
+    if (layer === 0) { P(c, -11, -3, 16, 1, '#8c96a8'); return; }
+    P(c, -9, 2, 19, 2, '#dfe3ea'); P(c, 10, 2, 2, 1, '#dfe3ea'); P(c, -9, 3, 19, 1, '#aab3c2');
+    for (let i = 0; i < 6; i++) P(c, -7 + i * 3, 2, 1, 1, i % 2 ? PAL.pink : '#7fb4d8');
+    P(c, -6, 4, 1, 2, PAL.grey); P(c, 5, 4, 1, 2, PAL.grey);
+  } else if (id === 'w2') { // barn doors
+    if (layer === 0) { P(c, -12, -4, 18, 2, PAL.woodD); return; }
+    P(c, -10, 1, 22, 4, PAL.wood); P(c, -10, 1, 22, 1, PAL.woodL); P(c, -10, 4, 22, 1, PAL.woodD);
+    for (let i = 0; i < 6; i++) P(c, -8 + i * 3, 3 - Math.floor(i / 2), 2, 1, PAL.woodD);
+    P(c, 9, 2, 1, 2, PAL.iron); P(c, -7, 2, 1, 2, PAL.iron);
+  } else if (id === 'w3') { // bedsheet
+    const b = Math.round(Math.sin(t * 9) * 1);
+    if (layer === 0) { P(c, -14, -4, 22, 1, '#9a8f7a'); return; }
+    P(c, -13, 0, 27, 1, '#8a7a5a'); P(c, 13, -1, 1, 3, '#8a7a5a');
+    P(c, -12, 1, 24, 4 + b, '#f4efe1'); P(c, -12, 2, 24, 1, '#7aa7d6'); P(c, -12, 4 + b, 24, 1, '#d9cfb8');
+    P(c, -6, 3, 1, 1, '#7aa7d6'); P(c, 2, 3, 1, 1, '#7aa7d6');
+  } else if (id === 'w4') { // biplane
+    if (layer === 0) { P(c, -12, -12, 20, 1, PAL.yellowD); return; }
+    P(c, -11, -11, 24, 2, PAL.yellow); P(c, -11, -10, 24, 1, PAL.yellowD); P(c, 13, -11, 1, 1, PAL.red);
+    P(c, -7, -9, 1, 12, PAL.greyD); P(c, 8, -9, 1, 12, PAL.greyD);
+    P(c, -11, 3, 24, 2, PAL.yellow); P(c, -11, 4, 24, 1, PAL.yellowD); P(c, 13, 3, 1, 1, PAL.red);
+  } else if (id === 'w5') { // glider
+    if (layer === 0) { P(c, -24, -2, 30, 1, PAL.whiteS); return; }
+    P(c, -26, 2, 34, 2, PAL.white); P(c, 8, 2, 3, 1, PAL.white); P(c, -30, 3, 4, 1, PAL.white);
+    P(c, -26, 3, 34, 1, PAL.whiteS); P(c, -30, 2, 2, 1, PAL.red);
+  } else if (id === 'w6') { // delta
+    if (layer === 0) { P(c, -14, -3, 14, 1, PAL.graph); return; }
+    for (let r = 0; r < 6; r++) P(c, -14, 1 + r, 25 - r * 4, 1, r === 0 ? PAL.graphL : PAL.greyD);
+    P(c, -14, 3, 16, 1, PAL.red);
+  }
+}
+const ENG = { // exhaust offset from mount, prop?, flame length
+  e1: { ex: -10, prop: false, air: true, fl: 0 }, e2: { ex: -10, prop: true, fl: 0 }, e3: { ex: -11, prop: true, fl: 0 },
+  e4: { ex: -12, prop: true, fl: 0 }, e5: { ex: -17, prop: false, fl: 12 }, e6: { ex: -17, prop: false, fl: 16 }
+};
+function drawEngine(c, id, x, y, o) {
+  const t = o.t || 0, on = o.thrust, sp = Math.floor(t * 30) % 2;
+  const prop = (px, len) => {
+    if (on) { c.globalAlpha = 0.45; P(c, px, y - len, 1, len * 2 + 1, '#dfe6ee'); c.globalAlpha = 1; P(c, px, y - (sp ? len : 1), 1, len, PAL.greyD); }
+    else { P(c, px, y - len, 1, len * 2 + 1, PAL.woodD); }
+    P(c, px - 1, y - 1, 2, 3, PAL.iron);
+  };
+  if (id === 'e1') { P(c, x - 6, y - 2, 6, 5, PAL.orange); P(c, x - 6, y - 2, 6, 1, '#ff9a55'); P(c, x - 9, y, 3, 2, PAL.grey); P(c, x - 5, y - 4, 3, 2, PAL.orangeD); P(c, x - 4, y + 3, 2, 1, PAL.black); }
+  else if (id === 'e2') { P(c, x - 7, y - 2, 7, 5, PAL.orange); P(c, x - 7, y - 2, 7, 1, '#ff9a55'); P(c, x - 6, y + 2, 5, 1, PAL.orangeD); P(c, x - 3, y - 4, 2, 2, PAL.black); prop(x - 9, 6); }
+  else if (id === 'e3') { P(c, x - 9, y - 3, 9, 7, PAL.olive); for (let i = 0; i < 4; i++) P(c, x - 8 + i * 2, y - 3, 1, 7, PAL.oliveD); P(c, x - 9, y + 3, 9, 1, PAL.black); P(c, x - 2, y - 5, 2, 2, PAL.chrome); prop(x - 10, 8); }
+  else if (id === 'e4') { P(c, x - 10, y - 3, 10, 7, PAL.red); P(c, x - 10, y - 3, 10, 1, '#ff7a6a'); P(c, x - 10, y + 3, 10, 1, PAL.black); P(c, x - 7, y - 1, 4, 2, PAL.black); P(c, x - 3, y - 1, 2, 1, PAL.yellow); prop(x - 11, 10); }
+  else if (id === 'e5') { P(c, x - 15, y - 3, 15, 7, PAL.silverD); P(c, x - 15, y - 3, 15, 1, PAL.silver); P(c, x - 2, y - 3, 2, 7, PAL.black); P(c, x - 17, y - 2, 2, 5, PAL.greyD); P(c, x - 11, y, 7, 1, PAL.grey); P(c, x - 8, y - 5, 4, 2, PAL.greyD); }
+  else if (id === 'e6') { // the kettle
+    P(c, x - 13, y - 4, 12, 9, PAL.red); P(c, x - 13, y - 4, 12, 1, '#ff7a6a'); P(c, x - 13, y + 4, 12, 1, PAL.redD);
+    P(c, x - 10, y - 1, 1, 1, '#ffffff'); P(c, x - 6, y + 1, 1, 1, '#ffffff'); P(c, x - 4, y - 2, 1, 1, '#ffffff');
+    P(c, x - 9, y - 6, 4, 2, PAL.redD); P(c, x - 8, y - 7, 2, 1, PAL.black);
+    P(c, x - 11, y - 9, 8, 1, PAL.black); P(c, x - 12, y - 8, 1, 3, PAL.black); P(c, x - 3, y - 8, 1, 3, PAL.black);
+    P(c, x - 16, y - 1, 3, 2, PAL.red); P(c, x - 17, y - 2, 1, 2, PAL.redD);
+  }
+  if (on && ENG[id]) {
+    const e = ENG[id];
+    if (e.fl) flame(c, x + e.ex, y, e.fl, 3, t);
+    else if (e.air) { for (let i = 0; i < 4; i++) P(c, x - 11 - i * 3 - (sp ? 1 : 0), y + ((i + sp) % 2), 2, 1, '#e8f2fa'); }
+  }
+}
+function flame(c, x, y, len, hw, t) {
+  for (let i = 0; i < len; i++) {
+    const k = i / len, fl = (Math.sin(t * 60 + i * 1.7) > 0) ? 1 : 0;
+    const h = Math.max(1, Math.round(hw * (1 - k * 0.8)) + fl);
+    const col = k < 0.2 ? PAL.flame1 : k < 0.45 ? PAL.flame2 : k < 0.75 ? PAL.flame3 : PAL.flame4;
+    if (k > 0.7 && Math.sin(t * 40 + i * 3) > 0.3) continue;
+    P(c, x - i, y - Math.floor(h / 2), 1, h, col);
+  }
+}
+function drawTank(c, id, x, y) {
+  if (id === 't1') { P(c, x - 3, y - 4, 6, 4, PAL.blue); P(c, x - 3, y - 4, 6, 1, '#6d9be0'); P(c, x + 3, y - 3, 2, 1, PAL.blue); P(c, x + 5, y - 4, 1, 1, PAL.blue); P(c, x - 1, y - 5, 2, 1, PAL.blueD); P(c, x - 4, y - 3, 1, 2, PAL.blueD); P(c, x - 1, y - 2, 1, 1, '#ffffff'); }
+  else if (id === 't2') { P(c, x - 3, y - 6, 7, 6, PAL.red); P(c, x - 2, y - 7, 4, 1, PAL.redD); P(c, x - 3, y - 6, 7, 1, '#ff7a6a'); P(c, x - 2, y - 4, 1, 1, PAL.redD); P(c, x + 2, y - 2, 1, 1, PAL.redD); P(c, x, y - 3, 1, 1, PAL.redD); }
+  else if (id === 't3') { P(c, x - 3, y - 10, 6, 10, PAL.white); P(c, x - 3, y - 10, 6, 1, '#ffffff'); P(c, x + 2, y - 10, 1, 10, PAL.whiteS); P(c, x - 3, y - 7, 6, 1, PAL.whiteS); P(c, x - 3, y - 3, 6, 1, PAL.whiteS); P(c, x - 1, y - 12, 2, 2, PAL.chrome); }
+  else if (id === 't4') { P(c, x - 4, y - 8, 8, 8, PAL.blue); P(c, x - 4, y - 8, 8, 1, '#6d9be0'); P(c, x - 4, y - 6, 8, 1, PAL.blueD); P(c, x - 4, y - 3, 8, 1, PAL.blueD); P(c, x + 3, y - 8, 1, 8, PAL.blueD); }
+  else if (id === 't5') { P(c, x - 8, y - 4, 16, 4, PAL.silver); P(c, x + 8, y - 3, 2, 2, PAL.silver); P(c, x - 10, y - 3, 2, 2, PAL.silverD); P(c, x - 8, y - 1, 16, 1, PAL.silverD); P(c, x - 8, y - 4, 16, 1, '#eef2f6'); P(c, x + 2, y - 4, 1, 4, PAL.red); }
+  else if (id === 't6') { P(c, x - 14, y - 5, 26, 5, '#8f9aa3'); P(c, x - 14, y - 5, 26, 1, '#b6c0c8'); P(c, x - 14, y - 1, 26, 1, '#5e6870'); P(c, x - 15, y - 6, 2, 7, '#5e6870'); P(c, x + 11, y - 6, 2, 7, '#5e6870'); P(c, x - 4, y - 5, 3, 5, PAL.yellow); }
+}
+function drawBooster(c, id, x, y, o) {
+  const t = o.t || 0, on = o.boost;
+  if (id === 'b1') { const cols = [PAL.red, PAL.yellow, PAL.green, PAL.blue]; for (let i = 0; i < 4; i++) P(c, x - 6, y + i, 11, 1, cols[i]); P(c, x - 6, y, 1, 4, PAL.black); P(c, x + 5, y, 1, 4, '#ffffff'); }
+  else if (id === 'b2') { P(c, x - 8, y, 13, 2, PAL.red); P(c, x - 8, y + 2, 13, 2, PAL.redD); P(c, x + 5, y, 1, 4, PAL.black); P(c, x - 9, y + 1, 1, 2, PAL.black); P(c, x - 2, y, 1, 4, PAL.white); }
+  else if (id === 'b3') { P(c, x - 9, y, 17, 3, PAL.white); P(c, x + 8, y, 2, 3, PAL.red); P(c, x + 10, y + 1, 1, 1, PAL.red); P(c, x - 10, y - 1, 2, 5, PAL.red); P(c, x - 9, y + 2, 17, 1, PAL.whiteS); }
+  else if (id === 'b4') { P(c, x - 11, y, 21, 3, PAL.silver); P(c, x + 10, y, 2, 3, PAL.silverD); for (let i = 0; i < 4; i++) P(c, x - 9 + i * 5, y, 1, 3, PAL.black); P(c, x - 12, y - 1, 2, 5, PAL.greyD); }
+  else if (id === 'b5') { P(c, x - 13, y, 25, 4, PAL.black); for (let i = 0; i < 6; i++) P(c, x - 11 + i * 4, y, 2, 4, PAL.yellow); P(c, x + 12, y + 1, 2, 2, PAL.black); P(c, x - 14, y - 1, 2, 6, PAL.greyD); }
+  if (on && id !== 'b0') {
+    const len = { b1: 9, b2: 10, b3: 14, b4: 18, b5: 24 }[id], back = { b1: -7, b2: -10, b3: -11, b4: -13, b5: -15 }[id];
+    if (id === 'b2') { for (let i = 0; i < len; i++) P(c, x + back - i, y + 1 + Math.round(Math.sin(t * 50 + i) * (i / 4)), 1, 2, i % 2 ? '#ffffff' : '#dfe6ee'); }
+    else flame(c, x + back, y + 2, len, id === 'b5' ? 5 : 3, t);
+    if (id === 'b1') { const cs = [PAL.red, PAL.yellow, PAL.green, PAL.pink, '#9fd8ff']; for (let i = 0; i < 6; i++) { const a = t * 30 + i * 2.1; P(c, x - 10 - (i * 3 + Math.floor(t * 40) % 4), y + 2 + Math.round(Math.sin(a) * 4), 1, 1, cs[i % 5]); } }
+  }
+}
+
+// full craft
+function drawCraft(c, ox, oy, L, o) {
+  c.save(); c.translate(ox, oy);
+  const h = HULLS[L.hull] || HULLS.h0;
+  const wingsOn = o.wingsOn !== false;
+  if (wingsOn && L.wings !== 'w0') drawWing(c, L.wings, o, 0);
+  if (L.booster !== 'b0') drawBooster(c, L.booster, -3, h.bot + 1, o);
+  if (L.tank !== 't0') drawTank(c, L.tank, -8, h.top + 1);
+  hullBack(c, L.hull, o);
+  if (h.seat && !o.empty) {
+    drawBelka(c, h.seat[0] + 5, h.seat[1], o);
+    drawLev(c, h.seat[0] - 1, h.seat[1], o);
+  }
+  hullFront(c, L.hull, o);
+  if (L.engine !== 'e0') drawEngine(c, L.engine, h.rear, 0, o);
+  if (wingsOn && L.wings !== 'w0') drawWing(c, L.wings, o, 1);
+  if (o.wreck) { P(c, -6, -2, 2, 2, '#30333d'); P(c, 4, 1, 3, 1, '#30333d'); P(c, -11, 2, 1, 2, '#30333d'); }
+  c.restore();
+}
+function exhaustLocal(L) {
+  const h = HULLS[L.hull] || HULLS.h0;
+  const e = ENG[L.engine];
+  return e ? { x: h.rear + e.ex, y: 0 } : null;
+}
+
+// ---------- icons for gadgets & ramps ----------
+function drawGadget(c, id, x, y, t) {
+  if (id === 'g1') { P(c, x - 8, y - 2, 16, 2, PAL.black); P(c, x - 7, y - 4, 6, 5, PAL.ice); P(c, x + 1, y - 4, 6, 5, PAL.ice); P(c, x - 6, y - 3, 2, 1, '#ffffff'); P(c, x + 2, y - 3, 2, 1, '#ffffff'); P(c, x - 7, y + 1, 6, 1, PAL.glassD); P(c, x + 1, y + 1, 6, 1, PAL.glassD); }
+  else if (id === 'g2') { P(c, x - 8, y - 6, 16, 12, PAL.woodD); P(c, x - 7, y - 5, 14, 10, '#e9dcbc'); for (let r = 0; r < 4; r++) { P(c, x - 7, y - 4 + r * 3, 14, 1, PAL.woodD); for (let b = 0; b < 3; b++) P(c, x - 6 + b * 2 + (r % 2) * 6, y - 5 + r * 3, 2, 2, b % 2 ? PAL.red : PAL.wood); } }
+  else if (id === 'g3') { P(c, x - 7, y - 7, 14, 14, PAL.white); P(c, x - 7, y - 7, 14, 3, PAL.whiteS); P(c, x - 5, y - 3, 10, 9, PAL.frame); P(c, x - 4, y - 2, 8, 7, PAL.glass); const a = (t || 0) * 6; P(c, x + Math.round(Math.cos(a) * 2) - 1, y + 1 + Math.round(Math.sin(a) * 2), 2, 2, PAL.blue); P(c, x + 3, y - 6, 2, 1, PAL.red); }
+  else if (id === 'g4') { P(c, x - 3, y - 8, 7, 15, PAL.green); P(c, x - 3, y - 8, 7, 2, PAL.chrome); P(c, x - 3, y - 4, 7, 1, PAL.greenD); P(c, x + 3, y - 6, 1, 13, PAL.greenD); P(c, x - 1, y - 1, 3, 3, PAL.yellow); P(c, x - 5, y - 10, 2, 1, '#ffffff'); P(c, x, y - 11, 1, 2, '#ffffff'); }
+  else if (id === 'g5') { P(c, x - 1, y - 9, 2, 12, PAL.grey); P(c, x - 7, y + 3, 14, 4, PAL.silver); P(c, x - 7, y + 3, 14, 1, '#eef2f6'); P(c, x - 5, y - 8, 10, 3, PAL.silver); P(c, x - 4, y - 8, 2, 1, '#ffffff'); P(c, x + 3, y - 9, 1, 1, PAL.red); P(c, x - 3, y - 4, 6, 1, PAL.silverD); }
+  else if (id === 'g6') { P(c, x - 9, y - 1, 15, 3, PAL.white); P(c, x + 6, y - 1, 2, 3, PAL.red); P(c, x - 10, y - 2, 2, 5, PAL.red); P(c, x + 1, y - 7, 1, 5, PAL.yellow); P(c, x - 1, y - 5, 5, 1, PAL.yellow); }
+}
+function drawRampIcon(c, id, x, y) {
+  const sn = '#f1f5fa', sh = '#b9c6dc';
+  P(c, x - 20, y + 4, 40, 4, sn); P(c, x - 20, y + 7, 40, 1, sh);
+  if (id === 'r0') { for (let i = 0; i < 12; i++) P(c, x - 6 + i, y + 4 - Math.round(Math.sin(i / 11 * Math.PI) * 5), 1, 5, sn); P(c, x - 2, y - 1, 3, 1, sh); }
+  else if (id === 'r1') { for (let i = 0; i < 24; i++) { const hh = Math.round(10 - i * 0.4); P(c, x - 14 + i, y + 4 - hh, 1, hh, sn); P(c, x - 14 + i, y + 4 - hh, 1, 1, PAL.ice); } }
+  else if (id === 'r2') { for (let i = 0; i < 24; i++) { const hh = Math.round(13 - i * 0.5); P(c, x - 14 + i, y + 4 - hh, 1, 2, i % 4 ? PAL.red : PAL.redD); } P(c, x - 12, y - 5, 1, 9, PAL.woodD); P(c, x - 2, y - 1, 1, 5, PAL.woodD); }
+  else if (id === 'r3') { for (let i = 0; i < 28; i++) { const hh = Math.round(18 * Math.pow(1 - i / 28, 1.4)) + 1; P(c, x - 16 + i, y + 4 - hh, 1, 1, PAL.woodL); if (i % 5 === 0) P(c, x - 16 + i, y + 4 - hh, 1, hh, PAL.woodD); } }
+  else if (id === 'r4') { P(c, x - 18, y - 4, 10, 6, PAL.green); P(c, x - 18, y - 4, 10, 1, '#7ccf7f'); P(c, x - 17, y + 1, 4, 4, PAL.black); P(c, x - 11, y + 1, 3, 3, PAL.black); P(c, x - 14, y - 7, 3, 3, PAL.glass); for (let i = 0; i < 3; i++) P(c, x - 7 + i * 5, y - 2 + i, 5, 2, PAL.black); P(c, x + 7, y - 6, 2, 10, PAL.woodD); P(c, x + 13, y - 6, 2, 10, PAL.woodD); P(c, x + 7, y - 6, 8, 1, PAL.black); }
+  else if (id === 'r5') { for (let i = 0; i < 32; i++) { const hh = Math.round(12 - i * 0.3); P(c, x - 18 + i, y + 4 - hh, 1, 1, PAL.grey); if (i % 4 === 0) P(c, x - 18 + i, y + 4 - hh + 1, 1, hh - 1, PAL.woodD); } P(c, x + 6, y - 6, 8, 3, PAL.red); P(c, x + 5, y - 5, 1, 1, PAL.flame2); }
+}
+// icon renderer for a part card
+function drawPartIcon(c, cat, id, t) {
+  c.clearRect(0, 0, c.canvas.width, c.canvas.height);
+  const cx = c.canvas.width / 2, cy = c.canvas.height / 2;
+  const o = { t: t || 0, wind: 0, thrust: false };
+  c.save(); c.translate(cx, cy);
+  if (cat === 'ramp') drawRampIcon(c, id, 0, 4);
+  else if (cat === 'hull') { hullBack(c, id, o); const h = HULLS[id]; if (h.seat) { drawBelka(c, h.seat[0] + 5, h.seat[1], o); drawLev(c, h.seat[0] - 1, h.seat[1], o); } hullFront(c, id, o); }
+  else if (cat === 'wings') { if (id === 'w0') noneMark(c); else { if (id === 'w5') c.translate(9, 0); drawWing(c, id, o, 0); drawWing(c, id, o, 1); } }
+  else if (cat === 'engine') { if (id === 'e0') noneMark(c); else drawEngine(c, id, 8, 0, o); }
+  else if (cat === 'tank') { if (id === 't0') noneMark(c); else drawTank(c, id, 0, 5); }
+  else if (cat === 'booster') { if (id === 'b0') noneMark(c); else drawBooster(c, id, 0, -1, o); }
+  else if (cat === 'gadget') drawGadget(c, id, 0, 0, t);
+  c.restore();
+}
+function noneMark(c) { for (let i = -5; i <= 5; i++) { P(c, i, i, 1, 1, '#5d6782'); P(c, i, -i, 1, 1, '#5d6782'); } }
+
+// ---------- entities ----------
+function drawEntity(c, e, x, y, t) {
+  x = Math.round(x); y = Math.round(y);
+  const bob = Math.round(Math.sin(t * 3 + e.ph) * 1.5);
+  if (e.type === 'cash' || e.type === 'fuel') {
+    P(c, x - 3, y - 13 + bob, 6, 6, e.type === 'cash' ? PAL.red : PAL.blue); P(c, x - 2, y - 14 + bob, 4, 1, e.type === 'cash' ? PAL.red : PAL.blue);
+    P(c, x - 2, y - 12 + bob, 1, 2, '#ffffff'); P(c, x, y - 7 + bob, 1, 4, '#d8dde6');
+    if (e.type === 'cash') { P(c, x - 4, y - 3 + bob, 8, 5, PAL.green); P(c, x - 4, y - 3 + bob, 8, 1, '#8fd18f'); P(c, x - 1, y - 2 + bob, 2, 3, PAL.yellow); }
+    else { P(c, x - 3, y - 3 + bob, 6, 6, PAL.green); P(c, x - 2, y - 4 + bob, 3, 1, PAL.greenD); P(c, x - 1, y - 1 + bob, 2, 2, PAL.yellow); }
+  } else if (e.type === 'samovar') {
+    const g = PAL.gold;
+    P(c, x - 3, y - 9 + bob, 6, 2, g); P(c, x - 4, y - 7 + bob, 8, 7, g); P(c, x - 3, y + bob, 6, 2, '#b07a20'); P(c, x - 1, y - 11 + bob, 2, 2, '#b07a20');
+    P(c, x + 4, y - 4 + bob, 3, 1, g); P(c, x - 6, y - 5 + bob, 2, 3, g); P(c, x - 2, y - 6 + bob, 1, 3, '#fff2b0');
+    if (Math.floor(t * 6) % 2) { P(c, x + 6, y - 11, 1, 1, '#ffffff'); P(c, x - 7, y - 2, 1, 1, '#ffffff'); }
+  } else if (e.type === 'page') {
+    const f = Math.floor(t * 5 + e.ph) % 4;
+    const w = [7, 5, 3, 5][f];
+    c.globalAlpha = 0.35 + 0.2 * Math.sin(t * 5); P(c, x - 7, y - 8, 14, 16, '#fff3c4'); c.globalAlpha = 1;
+    P(c, x - Math.floor(w / 2) - 1, y - 6, w + 2, 11, '#f2ead2'); for (let i = 0; i < 4; i++) P(c, x - Math.floor(w / 2), y - 4 + i * 2, w, 1, '#8e9bb8');
+    P(c, x + Math.floor(w / 2) - 1, y - 6, 1, 1, PAL.red);
+  } else if (e.type === 'gull') {
+    const f = Math.floor(t * 10 + e.ph) % 2;
+    P(c, x - 3, y, 7, 2, '#f4f6f8'); P(c, x + 3, y - 1, 2, 2, '#f4f6f8'); P(c, x + 5, y, 1, 1, PAL.yellow); P(c, x + 4, y - 1, 1, 1, PAL.black);
+    if (f) { P(c, x - 2, y - 3, 3, 3, '#aeb7c4'); P(c, x - 4, y - 4, 2, 1, '#aeb7c4'); } else { P(c, x - 2, y + 2, 3, 2, '#aeb7c4'); }
+    P(c, x - 5, y + 1, 2, 1, '#aeb7c4');
+  } else if (e.type === 'drone') {
+    const f = Math.floor(t * 30) % 2;
+    P(c, x - 6, y - 1, 12, 3, '#3a3f4f'); P(c, x - 3, y - 3, 6, 2, '#4b5266'); P(c, x - 8, y - 3, 3, 1, '#4b5266'); P(c, x + 5, y - 3, 3, 1, '#4b5266');
+    P(c, x - 10 + f, y - 4, 6 - f * 2, 1, '#c8d0dc'); P(c, x + 4 + f, y - 4, 6 - f * 2, 1, '#c8d0dc');
+    P(c, x - 1, y - 2, 2, 1, Math.floor(t * 4) % 2 ? '#ff4040' : '#4f8bff');
+    // net
+    for (let i = 0; i < 4; i++) P(c, x - 4 + i * 2, y + 2 + (i % 2), 1, 4, '#8a7f63');
+    P(c, x - 4, y + 4, 8, 1, '#8a7f63'); P(c, x - 3, y + 6, 6, 1, '#8a7f63');
+  }
+}
+
+// ================= GAME RUNTIME =================
+const W = 384, H = 216;
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+const spr = document.createElement('canvas'); spr.width = 150; spr.height = 96;
+const sctx = spr.getContext('2d'); sctx.imageSmoothingEnabled = false;
+const SPR_OX = 84, SPR_OY = 50;
+const TIME_SCALE = 2.2;
+const TOUCHY = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+const FONT = '8px "Press Start 2P", ui-monospace, monospace';
+
+// ---------- save ----------
+const SAVE_KEY = 'learn-to-flee-v1';
+function defSave() {
+  return {
+    v: 1, day: 1, cash: 0,
+    owned: { ramp: ['r0'], hull: ['h0'], wings: ['w0'], engine: ['e0'], tank: ['t0'], booster: ['b0'], gadget: [] },
+    equip: { ramp: 'r0', hull: 'h0', wings: 'w0', engine: 'e0', tank: 't0', booster: 'b0' }, gadgets: [],
+    rec: { dist: 0, alt: 0, speed: 0, air: 0, cash: 0 }, goals: {}, ach: {}, pages: [], seen: {}, pending: [],
+    won: false, wonDay: 0, flights: 0, earned: 0, sound: true, intro: false, memoDay: 0, memoIdx: 0
+  };
+}
+function loadSave() {
+  try {
+    const j = JSON.parse(localStorage.getItem(SAVE_KEY));
+    if (j && j.v === 1) { const d = defSave(); return Object.assign(d, j, { owned: Object.assign(d.owned, j.owned), equip: Object.assign(d.equip, j.equip), rec: Object.assign(d.rec, j.rec) }); }
+  } catch (e) { }
+  return defSave();
+}
+let S = loadSave();
+function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { } }
+function hasSave() { return S.flights > 0 || S.intro; }
+
+// ---------- audio ----------
+const AU = {
+  ac: null,
+  init() {
+    if (this.ac) { if (this.ac.state === 'suspended') this.ac.resume(); return; }
+    try {
+      const ac = new (window.AudioContext || window.webkitAudioContext)(); this.ac = ac;
+      this.master = ac.createGain(); this.master.gain.value = S.sound ? 0.45 : 0; this.master.connect(ac.destination);
+      const nb = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate), d = nb.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      this.nb = nb;
+      const loopNoise = (type, f, q) => { const s = ac.createBufferSource(); s.buffer = nb; s.loop = true; const fl = ac.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q; const g = ac.createGain(); g.gain.value = 0; s.connect(fl).connect(g).connect(this.master); s.start(); return [g, fl]; };
+      [this.windG, this.windF] = loopNoise('bandpass', 400, 0.8);
+      [this.boostG] = loopNoise('lowpass', 700, 0.5);
+      const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 60;
+      const ef = ac.createBiquadFilter(); ef.type = 'lowpass'; ef.frequency.value = 600;
+      const eg = ac.createGain(); eg.gain.value = 0; o.connect(ef).connect(eg).connect(this.master); o.start();
+      this.eng = o; this.engG = eg; this.engF = ef;
+    } catch (e) { this.ac = null; }
+  },
+  setOn(on) { if (this.master) this.master.gain.value = on ? 0.45 : 0; },
+  loop(active, speed, thr, tier, boost) {
+    if (!this.ac) return;
+    const t = this.ac.currentTime;
+    this.windG.gain.setTargetAtTime(active ? Math.min(0.3, speed / 350) : 0, t, 0.15);
+    this.windF.frequency.setTargetAtTime(250 + Math.min(speed, 600) * 3, t, 0.2);
+    this.engG.gain.setTargetAtTime(active && thr ? (tier >= 5 ? 0.07 : 0.1) : 0, t, 0.05);
+    this.eng.frequency.setTargetAtTime([0, 92, 70, 52, 46, 38, 32][tier] + Math.min(speed, 500) * 0.12, t, 0.1);
+    this.engF.frequency.setTargetAtTime(tier >= 5 ? 1600 : 650, t, 0.1);
+    this.boostG.gain.setTargetAtTime(active && boost ? 0.32 : 0, t, 0.05);
+  },
+  tone(f, d, type, v, slide, delay) {
+    if (!this.ac || !S.sound) return;
+    const ac = this.ac, t = ac.currentTime + (delay || 0), o = ac.createOscillator(), g = ac.createGain();
+    o.type = type || 'square'; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f * slide), t + d);
+    g.gain.setValueAtTime(v || 0.12, t); g.gain.exponentialRampToValueAtTime(0.001, t + d);
+    o.connect(g).connect(this.master); o.start(t); o.stop(t + d + 0.02);
+  },
+  noise(d, v, f, f2) {
+    if (!this.ac || !S.sound) return;
+    const ac = this.ac, t = ac.currentTime, s = ac.createBufferSource(), fl = ac.createBiquadFilter(), g = ac.createGain();
+    s.buffer = this.nb; fl.type = 'lowpass'; fl.frequency.setValueAtTime(f || 1000, t); if (f2) fl.frequency.exponentialRampToValueAtTime(f2, t + d);
+    g.gain.setValueAtTime(v || 0.3, t); g.gain.exponentialRampToValueAtTime(0.001, t + d);
+    s.connect(fl).connect(g).connect(this.master); s.start(t); s.stop(t + d + 0.05);
+  },
+  sfx(n) {
+    if (n === 'coin') { this.tone(988, 0.06, 'square', 0.08); this.tone(1480, 0.12, 'square', 0.08, 0, 0.06); }
+    else if (n === 'page') { [523, 659, 784, 1046].forEach((f, i) => this.tone(f, 0.12, 'triangle', 0.12, 0, i * 0.07)); }
+    else if (n === 'fuel') { this.tone(300, 0.15, 'triangle', 0.15, 2); }
+    else if (n === 'hit') { this.noise(0.25, 0.5, 900, 120); this.tone(110, 0.2, 'square', 0.12, 0.5); }
+    else if (n === 'gull') { this.tone(1400, 0.08, 'sawtooth', 0.06, 0.6); this.tone(1200, 0.1, 'sawtooth', 0.06, 0.6, 0.09); }
+    else if (n === 'splash') { this.noise(0.9, 0.5, 3000, 150); }
+    else if (n === 'skip') { this.noise(0.18, 0.35, 2500, 400); this.tone(500, 0.08, 'sine', 0.1, 1.6); }
+    else if (n === 'crash') { this.noise(0.8, 0.7, 700, 60); }
+    else if (n === 'wing') { this.noise(0.35, 0.6, 4000, 300); this.tone(180, 0.3, 'sawtooth', 0.12, 0.4); }
+    else if (n === 'boost') { this.noise(0.5, 0.45, 600, 2000); }
+    else if (n === 'launch') { this.tone(220, 0.25, 'square', 0.1, 2); }
+    else if (n === 'goal') { [523, 659, 784].forEach((f, i) => this.tone(f, 0.16, 'square', 0.09, 0, i * 0.09)); }
+    else if (n === 'buy') { this.tone(660, 0.07, 'square', 0.1); this.tone(990, 0.12, 'square', 0.1, 0, 0.07); }
+    else if (n === 'click') { this.tone(520, 0.04, 'square', 0.07); }
+    else if (n === 'deny') { this.tone(160, 0.15, 'square', 0.1); }
+    else if (n === 'land') { this.noise(0.2, 0.25, 600, 200); }
+    else if (n === 'win') { [392, 523, 659, 784, 1046].forEach((f, i) => this.tone(f, 0.25, 'triangle', 0.12, 0, i * 0.14)); }
+  }
+};
+
+// ---------- small helpers ----------
+const lerp = (a, b, k) => a + (b - a) * k;
+const rnd = (a, b) => a + Math.random() * (b - a);
+function hexRGB(h) { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+function mixRGB(a, b, k) { return [Math.round(lerp(a[0], b[0], k)), Math.round(lerp(a[1], b[1], k)), Math.round(lerp(a[2], b[2], k))]; }
+const rgb = c => `rgb(${c[0]},${c[1]},${c[2]})`;
+function R(x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); }
+function txt(s, x, y, col, align, shadow) {
+  ctx.font = FONT; ctx.textAlign = align || 'left'; ctx.textBaseline = 'top';
+  if (shadow !== false) { ctx.fillStyle = '#0b0e1c'; ctx.fillText(s, Math.round(x) + 1, Math.round(y) + 1); }
+  ctx.fillStyle = col || '#eef2f7'; ctx.fillText(s, Math.round(x), Math.round(y));
+}
+function blob(cx, cy, rx, ry, col) {
+  ctx.fillStyle = col;
+  for (let dy = -ry; dy <= ry; dy++) { const w = rx * Math.sqrt(Math.max(0, 1 - (dy / ry) * (dy / ry))); ctx.fillRect(Math.round(cx - w), Math.round(cy + dy), Math.round(w * 2), 1); }
+}
+
+// ---------- camera ----------
+const cam = { x: -10, y: 70, s: 2.2 };
+const sx = wx => W / 2 + (wx - cam.x) * cam.s;
+const sy = wy => H / 2 - (wy - cam.y) * cam.s;
+
+// ---------- sky & background ----------
+const STARS = Array.from({ length: 110 }, (_, i) => ({ x: hash(i * 5 + 1) * W, y: hash(i * 5 + 2) * H * 0.75, b: hash(i * 5 + 3), tw: hash(i * 5 + 4) * 6 }));
+const SKY = {
+  lowTop: hexRGB('#2d3478'), lowMid: hexRGB('#7a5aa0'), lowHor: hexRGB('#f1a38a'),
+  hiTop: hexRGB('#090c26'), hiMid: hexRGB('#1d2860'), hiHor: hexRGB('#4b5ea2'),
+  dawnHor: hexRGB('#ffcf7a'), dawnMid: hexRGB('#e58d8f')
+};
+function horizonY() { return H * 0.66 + clamp(cam.y * 0.006, 0, 46); }
+function drawSky(t, alt, prog) {
+  const k = clamp(alt / 9000, 0, 1), hy = horizonY();
+  const top = mixRGB(SKY.lowTop, SKY.hiTop, k);
+  const mid = mixRGB(mixRGB(SKY.lowMid, SKY.dawnMid, prog * 0.7), SKY.hiMid, k);
+  const hor = mixRGB(mixRGB(SKY.lowHor, SKY.dawnHor, prog), SKY.hiHor, k * 0.8);
+  const steps = 18;
+  for (let y = 0; y < H; y += 3) {
+    let u = clamp(y / hy, 0, 1);
+    u = Math.floor(u * steps) / steps;
+    const c = u < 0.55 ? mixRGB(top, mid, u / 0.55) : mixRGB(mid, hor, (u - 0.55) / 0.45);
+    R(0, y, W, 3, rgb(c));
+  }
+  // stars
+  const sa = clamp(0.55 + alt / 5000 - prog * 0.5, 0, 1);
+  if (sa > 0.02) {
+    const off = (cam.x * 0.002) % W;
+    for (const s of STARS) {
+      if (s.y > hy - 20) continue;
+      const tw = 0.5 + 0.5 * Math.sin(t * 2 + s.tw);
+      ctx.globalAlpha = sa * (0.35 + 0.65 * s.b) * (0.6 + 0.4 * tw);
+      R(((s.x - off) % W + W) % W, s.y, 1, 1, s.b > 0.85 ? '#fff7d6' : '#e6ecff');
+    }
+    ctx.globalAlpha = 1;
+  }
+  // aurora
+  const aa = clamp(0.75 - prog * 0.65, 0.08, 0.75) * (alt > 20000 ? 0.5 : 1);
+  const aoff = cam.x * 0.0015;
+  for (let i = 0; i < 3; i++) {
+    for (let x = 0; x < W; x += 2) {
+      const u = x + aoff;
+      const y0 = 16 + i * 11 + Math.sin(u * 0.021 + t * 0.25 + i * 1.7) * 9 + Math.sin(u * 0.067 - t * 0.45) * 3;
+      const len = 16 + Math.sin(u * 0.043 + t * 0.6 + i * 2) * 8;
+      const a = aa * (0.45 + 0.55 * Math.sin(u * 0.031 + t * 0.7 + i));
+      if (a <= 0.03) continue;
+      ctx.globalAlpha = a * 0.55; R(x, y0, 2, len * 0.35, i === 1 ? '#b7f7c8' : '#7cf2b0');
+      ctx.globalAlpha = a * 0.32; R(x, y0 + len * 0.35, 2, len * 0.4, i === 2 ? '#a77cf0' : '#46d69a');
+      ctx.globalAlpha = a * 0.14; R(x, y0 + len * 0.75, 2, len * 0.5, '#7a6ae0');
+    }
+  }
+  ctx.globalAlpha = 1;
+  // dawn glow in the east (toward Alaska)
+  const gx = W - 40, gy = hy;
+  const gr = 30 + prog * 80;
+  for (let r = gr; r > 4; r -= 6) { ctx.globalAlpha = 0.05 + prog * 0.05; blob(gx, gy, r * 1.6, r * 0.6, '#ffd59a'); }
+  ctx.globalAlpha = 1;
+  if (prog > 0.7) { const sr = Math.round(4 + (prog - 0.7) * 30); blob(gx, gy + 2 - (prog - 0.7) * 20, sr, sr, '#fff0c0'); }
+}
+function farElev(wx) {
+  let e = 0;
+  if (wx < 2500) {
+    const land = wx < 0 ? 1 : 1 - wx / 2500;
+    e = land * (380 + 260 * Math.sin(wx * 0.00031 + 1.1) + 180 * Math.sin(wx * 0.0011) + 90 * Math.sin(wx * 0.0043));
+  }
+  const soft = (a, b, h) => { const u = (wx - (a + b) / 2) / ((b - a) / 2 + 600); return Math.abs(u) < 1 ? h * Math.pow(1 - u * u, 1.3) : 0; };
+  e = Math.max(e, soft(BIGD[0], BIGD[1], 505), soft(LITD[0], LITD[1], 480));
+  if (wx > ALASKA - 500) {
+    const k = clamp((wx - ALASKA + 500) / 4000, 0, 1);
+    e = Math.max(e, k * (300 + 220 * Math.sin(wx * 0.0004 + 2) + 120 * Math.sin(wx * 0.0017) + 60 * Math.sin(wx * 0.006)));
+  }
+  return Math.max(0, e);
+}
+function drawFar(prog) {
+  const hy = Math.round(horizonY()), sF = 0.0042;
+  // distant sea
+  for (let y = hy; y < H; y += 2) R(0, y, W, 2, rgb(mixRGB(hexRGB('#5d6aa3'), hexRGB('#1d2c52'), clamp((y - hy) / 40, 0, 1))));
+  ctx.globalAlpha = 0.5; R(0, hy, W, 1, '#c9b8d8'); ctx.globalAlpha = 1;
+  const col = rgb(mixRGB(hexRGB('#4d5590'), hexRGB('#6a6a9c'), prog)), cap = '#a9b2d8';
+  for (let x = 0; x < W; x++) {
+    const wx = cam.x + (x - W / 2) / sF;
+    const e = farElev(wx);
+    if (e <= 2) continue;
+    const h = Math.round(e * 0.034);
+    R(x, hy - h, 1, h, col); R(x, hy - h, 1, 1, cap);
+  }
+}
+function drawClouds(t) {
+  const sp = 700, x0 = cam.x - (W / 2 + 200) / cam.s, x1 = cam.x + (W / 2 + 200) / cam.s;
+  const k0 = Math.floor(x0 / sp), k1 = Math.floor(x1 / sp);
+  if (k1 - k0 > 400) return;
+  for (let k = k0; k <= k1; k++) {
+    const r = hash(k * 7 + 11);
+    if (r > 0.6) continue;
+    const hi = hash(k * 7 + 12) > 0.5;
+    const wx = k * sp + hash(k * 7 + 13) * 300, wy = (hi ? 3400 : 1100) + hash(k * 7 + 14) * 900;
+    const size = 90 + hash(k * 7 + 15) * 200;
+    const rx = size * cam.s, ry = rx * 0.32;
+    if (rx < 3) continue;
+    const X = sx(wx), Y = sy(wy);
+    if (Y < -ry * 3 || Y > H + ry * 3) continue;
+    const c1 = hi ? '#d8d2ee' : '#c9c0e0', c2 = hi ? '#f2eefc' : '#e8e2f6';
+    ctx.globalAlpha = 0.9;
+    blob(X, Y + ry * 0.3, rx, ry * 0.7, c1);
+    blob(X - rx * 0.35, Y, rx * 0.55, ry, c2); blob(X + rx * 0.3, Y - ry * 0.25, rx * 0.5, ry * 1.1, c2);
+    ctx.globalAlpha = 1;
+  }
+}
+const TCOL = {
+  snow: ['#ffffff', '#e2e9f3', '#c4d0e3', '#a7b5cf'], ice: ['#f2fbff', '#bfe3f0', '#8fc3db'],
+  rock: ['#eef3f8', '#575d78', '#454a63', '#383c52'], tundra: ['#e9eef5', '#7c7a5c', '#625f48', '#4b4a3a']
+};
+function drawTerrain(t) {
+  const seaY = sy(0);
+  for (let x = 0; x < W; x++) {
+    const wx = cam.x + (x + 0.5 - W / 2) / cam.s;
+    const tr = terrain(wx);
+    const y = Math.round(sy(tr.h));
+    if (y >= H) continue;
+    const top = Math.max(y, -1);
+    if (tr.t === 'water') {
+      const wave = Math.sin(wx * 0.06 + t * 2.2) + Math.sin(wx * 0.017 - t * 1.3);
+      R(x, top, 1, H - top, '#1d3d68');
+      R(x, top, 1, 2, wave > 1.2 ? '#cfe6f5' : '#4f7fb3');
+      if (H - top > 6) { R(x, top + 6, 1, H - top - 6, '#173257'); }
+      if (H - top > 18) { R(x, top + 18, 1, H - top - 18, '#122848'); }
+    } else if (tr.t === 'ice') {
+      const sea = Math.round(seaY), th = Math.max(3, Math.round(Math.min(cam.s, 1.6) * 3));
+      R(x, top, 1, Math.max(th, sea - top + th), TCOL.ice[1]); R(x, top, 1, 1, TCOL.ice[0]);
+      if (sea + th < H) { R(x, sea + th, 1, H - sea - th, '#1d3d68'); R(x, sea + th - 1, 1, 1, TCOL.ice[2]); }
+      if (hash(Math.floor(wx / 3)) > 0.93) R(x, top + 1, 1, 1, TCOL.ice[2]);
+    } else if (tr.t === 'snow') {
+      R(x, top, 1, H - top, TCOL.snow[1]); R(x, top, 1, 1, TCOL.snow[0]);
+      R(x, top + 5, 1, H - top, TCOL.snow[2]); R(x, top + 14, 1, H - top, TCOL.snow[3]);
+      const hh = hash(Math.floor(wx / 2));
+      if (hh > 0.97) R(x, top + 2 + (hh * 20 | 0) % 6, 1, 1, '#8a90a8');
+    } else {
+      const C = TCOL[tr.t];
+      R(x, top, 1, H - top, C[1]); R(x, top, 1, 2, C[0]);
+      R(x, top + 6, 1, H - top, C[2]); if (hash(Math.floor(wx / 4) + 99) > 0.8) R(x, top + 3, 1, 4, C[3]);
+      R(x, top + 20, 1, H - top, C[3]);
+      if (tr.t === 'rock' && seaY < H) { /* sea foam at cliff base */ if (Math.abs(sy(0) - top) > 3) R(x, Math.round(seaY) - 1, 1, 1, '#cfe6f5'); }
+    }
+  }
+}
+
+// ---------- world props ----------
+const RAMP_LEN = { r0: 30, r1: 44, r2: 48, r3: 90, r4: 40, r5: 110 };
+function rampSurface(id, wx) {
+  const L = RAMP_LEN[id], h = Math.max(7, partOf('ramp', id).h), u = clamp((wx + L) / L, 0, 1);
+  return PLATEAU + 2.5 + h * Math.pow(1 - u, 2) - 1.5 * Math.sin(u * Math.PI) * (1 - u) + 1.2 * Math.pow(u, 6);
+}
+function drawRamp(id) {
+  const L = RAMP_LEN[id], base = sy(PLATEAU);
+  const x0 = Math.floor(sx(-L)), x1 = Math.ceil(sx(0));
+  if (x1 < 0 || x0 > W) return;
+  for (let x = Math.max(0, x0); x <= Math.min(W - 1, x1); x++) {
+    const wx = cam.x + (x + 0.5 - W / 2) / cam.s, y = Math.round(sy(rampSurface(id, wx)));
+    const hgt = Math.max(1, base - y), u = (wx + L) / L;
+    if (id === 'r0') { R(x, y, 1, hgt, '#eef4fb'); R(x, y, 1, 1, '#ffffff'); }
+    else if (id === 'r1') { R(x, y, 1, hgt, '#e6eef8'); R(x, y, 1, 2, '#9fdcf0'); }
+    else if (id === 'r2') { R(x, y, 1, 2, (Math.floor(wx * 1.2) % 2) ? '#c8453a' : '#9a2f28'); if (Math.abs(u - 0.2) < 0.02 || Math.abs(u - 0.75) < 0.02) R(x, y + 2, 1, hgt - 2, PAL.woodD); }
+    else if (id === 'r3') { R(x, y, 1, 2, PAL.woodL); if (Math.floor(wx / 4) % 3 === 0) R(x, y + 2, 1, hgt - 2, PAL.woodD); else if ((x + y) % 7 === 0) R(x, y + 3, 1, hgt - 3, '#5a3a24'); }
+    else if (id === 'r4') { R(x, y, 1, 2, '#2b2d35'); if (Math.floor(wx / 3) % 3 === 0) R(x, y + 2, 1, hgt - 2, '#3a3d48'); }
+    else if (id === 'r5') { R(x, y, 1, 1, '#a7aebb'); R(x, y + 1, 1, 1, PAL.woodD); if (Math.floor(wx / 5) % 2 === 0) R(x, y + 2, 1, hgt - 2, '#5a3a24'); }
+  }
+  if (id === 'r4') { // tractor
+    ctx.save(); ctx.translate(Math.round(sx(-L) - 14), Math.round(base)); ctx.scale(Math.max(1, Math.round(cam.s * 0.7)), Math.max(1, Math.round(cam.s * 0.7)));
+    P(ctx, -10, -9, 12, 6, PAL.green); P(ctx, -10, -9, 12, 1, '#86d28a'); P(ctx, -4, -14, 6, 5, PAL.greenD); P(ctx, -3, -13, 4, 3, PAL.glass);
+    P(ctx, -10, -4, 5, 4, PAL.black); P(ctx, 0, -3, 3, 3, PAL.black); P(ctx, 2, -12, 1, 3, PAL.greyD);
+    ctx.restore();
+  }
+}
+function propSprite(wx, wyAbove, fn) { // draws fixed-size pixel sprite anchored to terrain
+  const X = Math.round(sx(wx)); if (X < -60 || X > W + 60) return;
+  const Y = Math.round(sy(terrain(wx).h + (wyAbove || 0)));
+  if (Y < -60 || Y > H + 60) return;
+  fn(X, Y);
+}
+function drawProps(t) {
+  // research station
+  propSprite(-150, 0, (x, y) => {
+    P(ctx, x - 22, y - 14, 30, 14, '#5b6a86'); P(ctx, x - 24, y - 17, 34, 3, '#e9eef5'); P(ctx, x - 22, y - 14, 30, 1, '#6e7da0');
+    P(ctx, x - 18, y - 10, 5, 4, '#ffd36b'); P(ctx, x - 9, y - 10, 5, 4, (Math.floor(t * 0.5) % 5) ? '#ffd36b' : '#cf9a3a'); P(ctx, x + 1, y - 9, 4, 9, '#3d465e');
+    P(ctx, x + 2, y - 30, 1, 14, '#9aa3b6'); P(ctx, x - 1, y - 27, 7, 1, '#9aa3b6'); P(ctx, x + 2, y - 31, 1, 1, Math.floor(t * 2) % 2 ? '#ff4a4a' : '#5a2020');
+    P(ctx, x - 30, y - 6, 4, 6, '#3d465e'); P(ctx, x - 31, y - 7, 6, 1, '#e9eef5');
+    txt('7', x - 13, y - 14 + 0, '#e9eef5', 'center', false);
+  });
+  // shore signpost
+  propSprite(SHORE - 30, 0, (x, y) => {
+    P(ctx, x, y - 14, 1, 14, PAL.woodD); P(ctx, x - 2, y - 15, 20, 7, PAL.woodL); P(ctx, x + 16, y - 14, 3, 5, PAL.woodL); P(ctx, x + 18, y - 13, 2, 3, PAL.woodL);
+    P(ctx, x, y - 13, 12, 1, PAL.woodD); P(ctx, x, y - 11, 9, 1, PAL.woodD);
+  });
+  // border post on Big Diomede
+  propSprite(37400, 0, (x, y) => {
+    P(ctx, x - 2, y - 18, 4, 18, '#6b6f80'); P(ctx, x - 5, y - 22, 10, 4, '#4c5062'); P(ctx, x - 4, y - 21, 8, 2, '#ffd36b');
+    if (Math.floor(t * 1.5) % 2) { ctx.globalAlpha = 0.18; for (let i = 0; i < 40; i++) R(x - 4 - i * 2, y - 21 + i * 0.5, 2, 1 + i * 0.25, '#fff6c8'); ctx.globalAlpha = 1; }
+    P(ctx, x + 6, y - 6, 1, 6, '#6b6f80'); P(ctx, x + 7, y - 6, 5, 3, '#e9eef5'); P(ctx, x + 7, y - 4, 5, 1, '#3d6fb6'); P(ctx, x + 7, y - 3, 5, 1, PAL.red);
+  });
+  // Diomede village (Little Diomede, west shore)
+  for (let i = 0; i < 4; i++) propSprite(LITD[0] + 350 + i * 90, 0, (x, y) => {
+    const c = ['#b9584a', '#5f86b8', '#d8b04a', '#7aa56a'][i];
+    P(ctx, x - 4, y - 6, 8, 6, c); P(ctx, x - 5, y - 8, 10, 2, '#eef3f8'); P(ctx, x - 1, y - 4, 2, 2, '#ffd36b');
+  });
+  // Alaska: welcome sign and village of Wales
+  propSprite(ALASKA + 120, 0, (x, y) => {
+    P(ctx, x - 1, y - 12, 1, 12, PAL.woodD); P(ctx, x + 14, y - 12, 1, 12, PAL.woodD); P(ctx, x - 3, y - 18, 20, 8, '#2f5d8a'); P(ctx, x - 3, y - 18, 20, 1, '#5f8fc0');
+    P(ctx, x - 1, y - 16, 16, 1, '#eef3f8'); P(ctx, x - 1, y - 13, 11, 1, '#eef3f8');
+  });
+  for (let i = 0; i < 6; i++) propSprite(ALASKA + 410 + i * 95 + (i % 2) * 30, 0, (x, y) => {
+    const c = ['#c45a4a', '#e0c070', '#5f86b8', '#7aa56a', '#d8d8d8', '#b07a50'][i];
+    P(ctx, x - 5, y - 7, 10, 7, c); P(ctx, x - 6, y - 9, 12, 2, '#eef3f8'); P(ctx, x - 2, y - 5, 3, 2, Math.floor(t + i) % 3 ? '#ffd36b' : '#e0a040'); P(ctx, x + 3, y - 12, 2, 3, '#555');
+  });
+  // international date line
+  const dx = Math.round(sx(DATELINE));
+  if (dx > -40 && dx < W + 40) {
+    for (let y = 0; y < Math.min(H, sy(0)); y += 6) { ctx.globalAlpha = 0.55; R(dx, y, 1, 3, '#ffe9a8'); }
+    ctx.globalAlpha = 1;
+    const ly = clamp(sy(220), 24, H - 40);
+    txt('TODAY', dx - 4, ly, '#ffe9a8', 'right'); txt('YESTERDAY', dx + 5, ly, '#ffe9a8', 'left');
+  }
+}
+function drawRampObjects() { drawRamp(S.equip.ramp); }
+
+// ---------- particles & popups ----------
+let parts = [], pops = [], msgs = [];
+function addPart(x, y, vx, vy, life, col, size, grav, front) {
+  if (parts.length > 500) parts.shift();
+  parts.push({ x, y, vx, vy, life, max: life, col, size: size || 1, g: grav || 0, front: !!front });
+}
+function updParts(dt) {
+  for (const p of parts) { p.vy -= p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; if (p.g && p.y < 0 && terrain(p.x).t === 'water') p.life = 0; }
+  parts = parts.filter(p => p.life > 0);
+  for (const p of pops) { p.t += dt; }
+  pops = pops.filter(p => p.t < 1.2);
+  for (const m of msgs) m.t += dt;
+  msgs = msgs.filter(m => m.t < m.dur);
+}
+function drawParts(front) {
+  for (const p of parts) {
+    if (p.front !== front) continue;
+    const X = sx(p.x), Y = sy(p.y);
+    if (X < -8 || X > W + 8 || Y < -8 || Y > H + 8) continue;
+    ctx.globalAlpha = clamp(p.life / p.max * 1.4, 0, 1);
+    const s = Math.max(1, Math.round(p.size * (p.grow ? (1 + (1 - p.life / p.max) * 2) : 1)));
+    R(X - s / 2, Y - s / 2, s, s, p.col);
+  }
+  ctx.globalAlpha = 1;
+}
+function popup(wx, wy, text, col) { pops.push({ wx, wy, text, col: col || '#ffe08a', t: 0 }); }
+function drawPops() {
+  for (const p of pops) { ctx.globalAlpha = clamp(1.4 - p.t, 0, 1); txt(p.text, sx(p.wx), sy(p.wy) - 14 - p.t * 18, p.col, 'center'); }
+  ctx.globalAlpha = 1;
+}
+function say(text, col, dur) { msgs.push({ text, col: col || '#eef2f7', t: 0, dur: dur || 2.2 }); if (msgs.length > 3) msgs.shift(); }
+
+// ---------- flight state ----------
+const GS = { scr: 'title', t: 0, f: null, cfg: null, phase: 'none', rampT: 0, endT: 0, pick: 0, ents: [], spawnAcc: 0, ff: false, paused: false, flags: {}, pagesThis: [], lastSummary: null, cut: null };
+const keys = {};
+let boostPressed = false;
+
+function equippedL() { return { hull: S.equip.hull, wings: S.equip.wings, engine: S.equip.engine, tank: S.equip.tank, booster: S.equip.booster }; }
+
+function startFlight() {
+  GS.cfg = buildCfg(S.equip, S.gadgets);
+  GS.f = newFlight(GS.cfg);
+  GS.scr = 'flight'; GS.phase = 'ready'; GS.rampT = 0; GS.endT = 0; GS.pick = 0; GS.ents = []; GS.spawnAcc = 0; GS.flags = {}; GS.pagesThis = [];
+  parts = []; pops = []; msgs = []; GS.paused = false;
+  // fixed starter bundles over the hill and shore ice
+  [[90, 66], [170, 50], [260, 34], [350, 16], [620, 4.5], [960, 4.5], [1180, 4.5]].forEach(([x, y]) => GS.ents.push({ type: 'cash', x, y, ph: Math.random() * 6, val: 6 }));
+  const L = RAMP_LEN[S.equip.ramp];
+  GS.f.x = -L; GS.f.y = rampSurface(S.equip.ramp, -L); GS.f.vx = 0; GS.f.vy = 0;
+  cam.s = 2.2; cam.x = GS.f.x + 40; cam.y = GS.f.y + 10;
+}
+function launchNow() {
+  if (GS.phase !== 'ready') return;
+  GS.phase = 'ramp'; GS.rampT = 0; AU.sfx('launch');
+}
+function rampPhase(dt) {
+  const id = S.equip.ramp, L = RAMP_LEN[id], v = GS.cfg.ramp.speed;
+  const a = v * v / (2 * L);
+  GS.rampT += dt;
+  const d = Math.min(L, 0.5 * a * GS.rampT * GS.rampT);
+  const f = GS.f;
+  f.x = -L + d; f.y = rampSurface(id, f.x);
+  const y2 = rampSurface(id, f.x + 0.5);
+  f.th = Math.atan2(y2 - f.y, 0.5);
+  const cv_ = a * GS.rampT; f.vx = cv_ * Math.cos(f.th); f.vy = cv_ * Math.sin(f.th);
+  if (Math.random() < 0.6) addPart(f.x - 1, f.y, rnd(-3, 1), rnd(1, 4), 0.6, '#f4f8ff', 1, 6);
+  if (d >= L) {
+    const nf = newFlight(GS.cfg);
+    nf.fuel = f.fuel; GS.f = nf; GS.phase = 'fly';
+    if (GS.cfg.boostF > 0 && S.flights < 12) say(TOUCHY ? 'TAP BOOST TO FIRE THE BOOSTER' : 'PRESS B TO FIRE THE BOOSTER', '#ffd36b', 2);
+  }
+}
+
+// ---------- entities ----------
+function spawnOne() {
+  const f = GS.f, cfg = GS.cfg;
+  const X = W + 20 + Math.random() * 60, Y = 16 + Math.random() * (H - 50);
+  const wx = cam.x + (X - W / 2) / cam.s, wy = cam.y - (Y - H / 2) / cam.s;
+  if (wy < terrain(wx).h + 8) return;
+  const w = [];
+  w.push(['cash', 0.36]);
+  if (cfg.thrust > 0) w.push(['fuel', 0.07]);
+  if (wx > 3000) w.push(['samovar', 0.005]);
+  if (wy < 700 && wx > 300) w.push(['gull', 0.2]);
+  if (wx > 2500 && wx < DATELINE) w.push(['drone', 0.06 + 0.12 * (wx / DATELINE)]);
+  let r = Math.random(), type = null;
+  for (const [n, p] of w) { if (r < p) { type = n; break; } r -= p; }
+  if (!type) return;
+  if (type === 'gull') {
+    const n = 2 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) GS.ents.push({ type, x: wx + (i * 14 + rnd(-4, 4)) / cam.s, y: wy + rnd(-12, 12) / cam.s, ph: Math.random() * 6 });
+  } else GS.ents.push({ type, x: wx, y: wy, ph: Math.random() * 6, val: Math.round(5 + Math.max(0, wx) / 350) });
+}
+function updEnts(dt, dtReal) {
+  const f = GS.f, cfg = GS.cfg;
+  const cX = sx(f.x), cY = sy(f.y);
+  for (const e of GS.ents) {
+    if (e.dead) continue;
+    if (e.type === 'gull') { e.x -= 9 * dt; e.y += Math.sin(GS.t * 3 + e.ph) * 2 * dt; }
+    if (e.type === 'drone' && !cfg.jammer && f.hp > 0) {
+      const dx = cX - sx(e.x), dy = cY - sy(e.y), d = Math.hypot(dx, dy);
+      if (d < 230 && d > 1) { const sp = 55 * dtReal; e.x += dx / d * sp / cam.s; e.y -= dy / d * sp / cam.s; }
+    }
+    const ex = sx(e.x), ey = sy(e.y);
+    if (ex < -100 || ex > W + 700 || ey < -400 || ey > H + 400) { if (e.type !== 'page') e.dead = true; continue; }
+    const dx = ex - cX, dy = ey - cY, d = Math.hypot(dx, dy);
+    const pickR = 12 * cfg.magnet;
+    if (e.type === 'cash' && d < pickR) { e.dead = true; GS.pick += e.val; popup(e.x, e.y, '+' + e.val, '#ffe08a'); AU.sfx('coin'); }
+    else if (e.type === 'fuel' && d < pickR) { e.dead = true; f.fuel = Math.min(cfg.fuelCap, f.fuel + cfg.fuelCap * 0.2); popup(e.x, e.y, '+FUEL', '#9fe6a6'); AU.sfx('fuel'); }
+    else if (e.type === 'samovar' && d < pickR + 2) { e.dead = true; GS.pick += 800; GS.flags.samovar = true; popup(e.x, e.y, '+800', '#ffd36b'); say('GOLDEN SAMOVAR!', '#ffd36b'); AU.sfx('page'); }
+    else if (e.type === 'gull' && d < 9) {
+      e.dead = true; const v = Math.hypot(f.vx, f.vy); f.vx *= 0.86; f.vy *= 0.86;
+      if (v > 70) { f.hp -= 1; f.lastHit = f.t; } GS.flags.gull = true; say('BIRDSTRIKE!', '#f4f6f8', 1.4); AU.sfx('gull');
+      for (let i = 0; i < 10; i++) addPart(e.x, e.y, rnd(-8, 8) + f.vx * 0.2, rnd(-4, 8), 1.5, i % 2 ? '#ffffff' : '#aeb7c4', 1, 3, true);
+    } else if (e.type === 'drone' && d < 10) {
+      e.dead = true; f.vx *= 0.55; f.vy *= 0.55; f.hp -= 1; f.lastHit = f.t; GS.flags.drone = true; say('NETTED BY PATROL DRONE!', '#ff8a7a', 1.8); AU.sfx('hit');
+      for (let i = 0; i < 14; i++) addPart(e.x, e.y, rnd(-10, 10), rnd(-6, 10), 1.4, i % 3 ? '#8a7f63' : '#3a3f4f', 1, 6, true);
+    } else if (e.type === 'page' && d < pickR + 2) {
+      e.dead = true; if (!S.pages.includes(e.idx)) { S.pages.push(e.idx); GS.pagesThis.push(e.idx); GS.pick += 300; persist(); }
+      say('RESEARCH PAGE ' + S.pages.length + '/12', '#fff3c4', 2.4); popup(e.x, e.y, '+300', '#fff3c4'); AU.sfx('page');
+    }
+  }
+  GS.ents = GS.ents.filter(e => !e.dead);
+  // research pages: inject when nearby
+  PAGES.forEach((p, i) => {
+    if (S.pages.includes(i) || GS.ents.some(e => e.type === 'page' && e.idx === i)) return;
+    const X = sx(p.x), Y = sy(p.y);
+    if (X > -40 && X < W + 300 && Y > -200 && Y < H + 200) GS.ents.push({ type: 'page', x: p.x, y: p.y, idx: i, ph: i });
+  });
+}
+
+// ---------- flight update ----------
+function curInput() {
+  const up = keys.ArrowUp || keys.KeyW || keys.ArrowLeft || keys.KeyA || TOUCH.up;
+  const dn = keys.ArrowDown || keys.KeyS || keys.ArrowRight || keys.KeyD || TOUCH.down;
+  const b = boostPressed; boostPressed = false;
+  return { rot: (up ? 1 : 0) - (dn ? 1 : 0), thrust: !!(keys.Space || TOUCH.thrust), boost: b };
+}
+function updateFlight(dtReal) {
+  const f = GS.f, cfg = GS.cfg;
+  if (GS.paused) return;
+  const simDt = dtReal * TIME_SCALE * (GS.ff ? 2.5 : 1);
+  if (GS.phase === 'ramp') rampPhase(simDt);
+  else if (GS.phase === 'fly') {
+    const inp = curInput();
+    const n = Math.max(1, Math.ceil(simDt / (1 / 120)));
+    const px0 = sx(f.x);
+    for (let i = 0; i < n && !f.done; i++) { step(f, cfg, i === 0 ? inp : Object.assign({}, inp, { boost: false }), simDt / n); }
+    handleEvents();
+    exhaustFx(simDt);
+    // spawn based on screen-space travel
+    GS.spawnAcc += Math.abs(Math.hypot(f.vx, f.vy) * simDt * cam.s);
+    while (GS.spawnAcc > 70) { GS.spawnAcc -= 70; spawnOne(); }
+    updEnts(simDt, dtReal);
+    if (f.done) { GS.phase = 'end'; GS.endT = 0; onFlightEnd(); }
+  } else if (GS.phase === 'end') {
+    GS.endT += dtReal;
+    if (GS.endT > (f.end === 'splash' ? 1.6 : 1.2) && !GS.flags.reported) { GS.flags.reported = true; finishFlight(); }
+  }
+  updParts(simDt);
+  updCamera(dtReal);
+  const v = Math.hypot(f.vx, f.vy);
+  const tier = +cfg.engine.id.slice(1);
+  AU.loop(GS.phase === 'fly' || GS.phase === 'ramp', v, f.thrusting, tier, f.boostT > 0);
+}
+function updCamera(dt) {
+  const f = GS.f, v = Math.hypot(f.vx, f.vy);
+  const ts = clamp(2.2 / (1 + v / 26), 0.07, 2.2);
+  cam.s += (ts - cam.s) * Math.min(1, dt * 1.4);
+  const gh = terrain(f.x).h;
+  const want = clamp(H - 34 - (f.y - gh) * cam.s, H * 0.32, H - 34);
+  cam.x = f.x + (W * 0.13) / cam.s;
+  cam.y = f.y - (H / 2 - want) / cam.s;
+}
+function exhaustFx(dt) {
+  const f = GS.f, L = equippedL();
+  const c = Math.cos(f.th), s = Math.sin(f.th);
+  const loc = (lx, ly) => ({ x: f.x + (lx * c + ly * s) / Math.max(cam.s, 0.05) * 1, y: f.y + (lx * s - ly * c) / Math.max(cam.s, 0.05) });
+  if (f.thrusting) {
+    const ex = exhaustLocal(L);
+    if (ex) {
+      const p = loc(ex.x - 2, ex.y);
+      const jet = +L.engine.slice(1) >= 5, high = f.y > 6000;
+      const n = jet ? 2 : 1;
+      for (let i = 0; i < n; i++) {
+        const pp = { x: f.x + (p.x - f.x) * 1, y: p.y };
+        const col = high ? '#f2f4fa' : jet ? '#8a8fa3' : '#c9ced8';
+        const q = { x: pp.x, y: pp.y };
+        parts.push({ x: q.x, y: q.y, vx: -c * 6 + f.vx * 0.25 + rnd(-2, 2), vy: -s * 6 + f.vy * 0.25 + rnd(-2, 2), life: high ? 2.4 : 1.1, max: high ? 2.4 : 1.1, col, size: jet ? 2 : 1, g: -0.5, front: false, grow: true });
+      }
+    }
+  }
+  if (f.boostT > 0 && f.hp > 0) {
+    const p = loc(-16, HULLS[L.hull].bot + 2);
+    for (let i = 0; i < 3; i++) parts.push({ x: p.x, y: p.y, vx: -c * 10 + f.vx * 0.2 + rnd(-3, 3), vy: -s * 10 + f.vy * 0.2 + rnd(-3, 3), life: 1.6, max: 1.6, col: i ? '#b4b8c6' : '#ffd36b', size: 2, g: -0.3, front: false, grow: true });
+    if (L.booster === 'b1' && Math.random() < 0.5) addPart(p.x, p.y, rnd(-15, 15), rnd(-5, 15), 0.8, ['#ff5d5d', '#ffd36b', '#7ef08a', '#9fd8ff', '#ff9ad8'][Math.floor(Math.random() * 5)], 1, 4, true);
+  }
+  if (f.grounded && Math.hypot(f.vx, f.vy) > 4 && Math.random() < 0.7) addPart(f.x - 1, f.y + 0.3, rnd(-4, 1) - f.vx * 0.1, rnd(1, 5), 0.7, '#f4f8ff', 1, 9, true);
+  if (f.hp <= 0 && Math.random() < 0.4) addPart(f.x, f.y, rnd(-2, 2), rnd(1, 4), 1.4, '#4a4d58', 2, -1, false);
+}
+function handleEvents() {
+  const f = GS.f;
+  for (const e of f.events) {
+    if (e.n === 'boost') { say('BOOSTER!', '#ffd36b', 1.2); AU.sfx('boost'); }
+    else if (e.n === 'skip') { say('SKIP x' + e.d + '!', '#9fdcf0', 1.2); AU.sfx('skip'); for (let i = 0; i < 16; i++) addPart(f.x + rnd(-3, 3), 0.3, rnd(-6, 6) + f.vx * 0.3, rnd(3, 12), 1, i % 2 ? '#e6f4fb' : '#7fb4d8', 1, 14, true); }
+    else if (e.n === 'wingbreak') { say('WINGS TORN OFF!', '#ff8a7a', 2.2); AU.sfx('wing'); GS.flags.wings = true; for (let i = 0; i < 16; i++) addPart(f.x, f.y, f.vx * 0.6 + rnd(-20, 20), f.vy * 0.6 + rnd(-10, 20), 3, i % 2 ? '#c4cdda' : PAL.woodL, 2, 9.8, true); }
+    else if (e.n === 'wreck') { say('HULL DESTROYED!', '#ff8a7a', 2); GS.flags.wreck = true; }
+    else if (e.n === 'hit') { say('OUCH!', '#ff8a7a', 1); AU.sfx('hit'); }
+    else if (e.n === 'bump') { AU.sfx('land'); }
+    else if (e.n === 'land') { AU.sfx('land'); for (let i = 0; i < 10; i++) addPart(f.x, f.y + 0.3, rnd(-6, 6), rnd(2, 8), 0.8, '#f4f8ff', 1, 9.8, true); }
+    else if (e.n === 'sonic') { say('SOUND BARRIER!', '#9fdcf0', 2); for (let r = 0; r < 18; r++) { const a = r / 18 * Math.PI * 2; addPart(f.x, f.y, Math.cos(a) * 40 / cam.s * 0.4, Math.sin(a) * 40 / cam.s * 0.4, 0.5, '#ffffff', 1, 0, true); } }
+    else if (e.n === 'dateline') { say('DATE LINE: IT IS NOW YESTERDAY', '#ffe9a8', 3); AU.sfx('goal'); }
+    else if (e.n === 'alaska') { say('ALASKA! NOW LAND SOMEWHERE SOFT', '#ffd36b', 4); AU.sfx('win'); }
+    else if (e.n === 'openwater') { say('OPEN WATER', '#9fdcf0', 1.6); }
+    else if (e.n === 'loop') { say('LOOP!', '#c9b8ff', 1.2); }
+  }
+  f.events.length = 0;
+  if (f.invMax >= 3 && !GS.flags.inv) { GS.flags.inv = true; say('UPSIDE DOWN!', '#c9b8ff', 1.4); }
+}
+function onFlightEnd() {
+  const f = GS.f;
+  if (f.end === 'splash') { AU.sfx('splash'); for (let i = 0; i < 46; i++) addPart(f.x + rnd(-2, 2), 0.2, rnd(-8, 8) + f.vx * 0.1, rnd(4, 18), 1.6, i % 3 ? '#dff1fb' : '#7fb4d8', 1, 12, true); f.vx = 0; f.vy = 0; }
+  else if (f.end === 'crash') { AU.sfx('crash'); for (let i = 0; i < 30; i++) addPart(f.x, f.y, rnd(-10, 10), rnd(0, 14), 2, i % 2 ? '#5b5f74' : '#c4cdda', 2, 9.8, true); f.vx = 0; f.vy = 0; }
+  else AU.sfx('land');
+}
+function abortFlight() { if (GS.scr === 'flight' && (GS.phase === 'fly' || GS.phase === 'ramp' || GS.phase === 'ready')) { if (GS.phase !== 'fly') { GS.f = newFlight(GS.cfg); GS.f.x = 0; } finish(GS.f, 'abort'); GS.phase = 'end'; GS.endT = 9; GS.paused = false; } }
+
+// ---------- flight results ----------
+function finishFlight() {
+  const f = GS.f, cfg = GS.cfg;
+  const pay = payout(f, cfg, GS.pick);
+  const stats = { dist: Math.round(Math.max(0, f.maxX)), alt: Math.round(f.maxY), speed: Math.round(f.maxV), air: Math.round(f.air), cash: pay.total };
+  const records = {};
+  for (const k of ['dist', 'alt', 'speed', 'air', 'cash']) if (stats[k] > S.rec[k]) { records[k] = true; }
+  const prevBest = S.rec.dist;
+  // goals
+  const goalsHit = [];
+  GOALS.forEach(g => g.tiers.forEach((th, i) => { const id = g.id + i; if (!S.goals[id] && stats[g.key] >= th) { S.goals[id] = true; goalsHit.push({ label: g.label + ': ' + g.fmt(th), rew: g.rew[i] }); } }));
+  // achievements
+  const achHit = [];
+  const unlock = id => { if (!S.ach[id]) { S.ach[id] = true; const a = ACH.find(x => x.id === id); achHit.push(a); } };
+  const endIn = f.end === 'stopped' ? f.endInfo : f.end;
+  const atAlaska = f.x > ALASKA && f.end !== 'abort';
+  unlock('first');
+  if (f.end === 'splash') unlock('splash');
+  if (f.skips >= 3) unlock('skip3');
+  if (GS.flags.gull) unlock('gull');
+  if (GS.flags.drone) unlock('drone');
+  if (GS.flags.wings) unlock('wings');
+  if (GS.flags.wreck || f.hp <= 0) unlock('wreck');
+  if (f.loops > 0) unlock('loop');
+  if (f.invMax >= 3) unlock('inverted');
+  if (f.maxY > 3000) unlock('clouds');
+  if (f.maxY > 15000) unlock('strato');
+  if (f.maxV > 343) unlock('sonic');
+  if (!f.usedEngine && f.maxX > 5000) unlock('glider');
+  if (GS.flags.samovar) unlock('samovar');
+  if (f.end === 'stopped' && f.endInfo === 'big') unlock('bigd');
+  if (f.flags.dateline) unlock('dateline');
+  if (f.end === 'stopped' && f.endInfo === 'little') unlock('littled');
+  if (S.pages.length >= 12) unlock('pages');
+  if (atAlaska) unlock('alaska');
+  const goalCash = goalsHit.reduce((a, g) => a + g.rew, 0) + achHit.reduce((a, g) => a + g.rew, 0);
+  // records
+  for (const k of Object.keys(records)) S.rec[k] = stats[k];
+  // diary triggers
+  const q = k => { if (!S.seen[k]) { S.seen[k] = true; S.pending.push(k); } };
+  if (S.flights === 0) q('firstflight');
+  if (f.end === 'splash') q('splash');
+  if (f.flags.water) q('openwater');
+  if (GS.flags.drone) q('drone');
+  if (GS.flags.wings) q('wings');
+  if (f.maxX > 10000) q('km10');
+  if (f.maxX > 28000) q('bigd');
+  if (f.flags.dateline) q('dateline');
+  if (f.end === 'stopped' && f.endInfo === 'little') q('littled');
+  const winNow = atAlaska && !S.won;
+  if (winNow) { S.won = true; S.wonDay = S.day; }
+  S.cash += pay.total + goalCash; S.earned += pay.total + goalCash; S.flights++;
+  const flightDay = S.day; S.day++;
+  persist();
+  // expression + quote
+  let expr = 'calm', qk = 'snow';
+  if (atAlaska) { expr = 'happy'; qk = 'record'; }
+  else if (f.end === 'splash') { expr = Math.random() < 0.5 ? 'sad' : 'dizzy'; qk = 'splash'; }
+  else if (f.end === 'crash') { expr = 'dizzy'; qk = 'crash'; }
+  else if (f.end === 'abort') { expr = 'calm'; qk = 'abort'; }
+  else if (endIn === 'big' || endIn === 'little') { expr = endIn === 'big' ? 'scared' : 'happy'; qk = endIn; }
+  else if (endIn === 'ice') qk = 'ice';
+  if (records.dist && f.end !== 'abort' && !atAlaska) { expr = 'grin'; qk = 'record'; }
+  const arr = QUOTES[qk] || QUOTES.snow;
+  const endText = {
+    splash: 'Splashdown in the Bering Sea', crash: f.endInfo === 'big' ? 'Crashed into Big Diomede' : f.endInfo === 'little' ? 'Crashed into Little Diomede' : 'Crash landing',
+    abort: 'Flight called off', stopped: { snow: 'Stopped on the snowy hill', ice: 'Stopped on the ice', big: 'Landed on Big Diomede (Russia)', little: 'Landed on Little Diomede (USA)', tundra: 'Landed in Alaska', rock: 'Stopped on the rocks' }[f.endInfo] || 'Came to a stop'
+  }[f.end];
+  GS.lastSummary = { day: flightDay, stats, pay, records, goalsHit, achHit, goalCash, expr, quote: arr[Math.floor(Math.random() * arr.length)], endText: atAlaska ? 'Landed in Alaska!' : endText, winNow, prevBest, pages: GS.pagesThis.slice() };
+  checkMaxed();
+  UI.showResults(GS.lastSummary);
+}
+function checkMaxed() {
+  const all = ['ramp', 'hull', 'wings', 'engine', 'tank', 'booster'].every(c => S.owned[c].includes(PARTS[c][PARTS[c].length - 1].id));
+  if (all && !S.ach.maxed) { S.ach.maxed = true; if (!S.seen.maxed) { S.seen.maxed = true; S.pending.push('maxed'); } persist(); }
+}
+
+// ---------- rendering ----------
+function renderCraftSprite(L, o) {
+  sctx.clearRect(0, 0, spr.width, spr.height);
+  drawCraft(sctx, SPR_OX, SPR_OY, L, o);
+}
+function craftLift(L) { return (HULLS[L.hull] || HULLS.h0).bot + (L.booster !== 'b0' ? 5 : 1); }
+const _bbCache = {};
+function spriteBounds(L) {
+  const key = [L.hull, L.wings, L.engine, L.tank, L.booster].join();
+  if (_bbCache[key]) return _bbCache[key];
+  const d = sctx.getImageData(0, 0, spr.width, spr.height).data;
+  let x0 = spr.width, x1 = -1, y0 = spr.height, y1 = -1;
+  for (let y = 0; y < spr.height; y++) for (let x = 0; x < spr.width; x++) if (d[(y * spr.width + x) * 4 + 3] > 0) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  if (x1 < 0) { x0 = SPR_OX - 10; x1 = SPR_OX + 10; y0 = SPR_OY - 5; y1 = SPR_OY + 5; }
+  return (_bbCache[key] = { x0, x1, y0, y1 });
+}
+function drawCraftAt(X, Y, th, L, o, scale, k) {
+  renderCraftSprite(L, o);
+  if (k) { X -= k * Math.sin(th); Y -= k * Math.cos(th); }
+  ctx.save(); ctx.translate(Math.round(X), Math.round(Y)); ctx.rotate(-th); if (scale) ctx.scale(scale, scale);
+  ctx.drawImage(spr, -SPR_OX, -SPR_OY); ctx.restore();
+}
+function faceExpr(f) {
+  const v = Math.hypot(f.vx, f.vy);
+  if (GS.phase === 'end') return f.end === 'splash' ? 'sad' : f.end === 'crash' ? 'dizzy' : 'calm';
+  if (GS.phase === 'ready') return 'determined';
+  if (f.t - f.lastHit < 1.2 || f.hp <= 0) return 'dizzy';
+  if (f.stress > 0.85) return 'scared';
+  if (f.boostT > 0) return 'grin';
+  if (!f.grounded && f.vy < -45 && f.y - terrain(f.x).h < 400) return 'scream';
+  if (v > 160) return 'wind';
+  if (f.thrusting) return 'determined';
+  if (!f.grounded && f.vy > 4) return 'happy';
+  return 'calm';
+}
+function renderWorld(t, opts) {
+  const prog = clamp((opts && opts.prog !== undefined) ? opts.prog : cam.x / ALASKA, 0, 1);
+  drawSky(t, cam.y, prog);
+  drawFar(prog);
+  drawClouds(t);
+  drawTerrain(t);
+  drawRampObjects();
+  drawProps(t);
+}
+function renderFlight(t) {
+  const f = GS.f, cfg = GS.cfg, L = equippedL();
+  renderWorld(t);
+  drawParts(false);
+  for (const e of GS.ents) drawEntity(ctx, e, sx(e.x), sy(e.y), t);
+  const v = Math.hypot(f.vx, f.vy);
+  const expr = faceExpr(f);
+  if (!(GS.phase === 'end' && f.end === 'splash' && GS.endT > 0.25)) {
+    const shake = f.stress > 0.85 ? (Math.random() - 0.5) * 2 : 0;
+    const sub = GS.phase === 'end' && f.end === 'splash' ? 4 : 0;
+    drawCraftAt(sx(f.x) + shake, sy(f.y) + sub, f.th, L, { t, wind: clamp(v / 120, 0, 1), thrust: f.thrusting, boost: f.boostT > 0 && f.hp > 0, wingsOn: f.wings, expr, wreck: f.hp <= 0 }, 0, craftLift(L) - 1);
+  }
+  drawParts(true);
+  drawPops();
+  drawHUD(t, expr);
+}
+function drawHUD(t, expr) {
+  const f = GS.f, cfg = GS.cfg, v = Math.hypot(f.vx, f.vy);
+  // portrait
+  R(3, 3, 36, 36, '#0b0e1c'); R(4, 4, 34, 34, '#3a4672'); R(5, 5, 32, 32, f.y > 6000 ? '#141a3e' : '#2b3466');
+  drawFace(ctx, 5, 5, expr, t, clamp(v / 150, 0, 1));
+  for (let i = 0; i < cfg.hp; i++) { const px = 4 + (i % 7) * 5, py = 41 + Math.floor(i / 7) * 5; R(px, py, 4, 4, '#0b0e1c'); R(px + 1, py + 1, 2, 2, i < f.hp ? '#ff8a6a' : '#3a4060'); }
+  // numbers
+  txt(fmtDist(Math.max(0, f.x)).toUpperCase(), 44, 6, '#9fe6f5');
+  txt('ALT ' + fmtNum(Math.max(0, f.y)) + 'M', 44, 17, '#eef2f7');
+  txt('SPD ' + fmtNum(v) + 'M/S', 44, 28, v > 343 ? '#ffd36b' : '#eef2f7');
+  let bx = 44;
+  if (cfg.fuelCap > 0) {
+    R(bx, 39, 62, 7, '#0b0e1c'); const k = f.fuel / cfg.fuelCap;
+    R(bx + 1, 40, Math.round(60 * k), 5, k > 0.3 ? '#7fd89a' : k > 0.1 ? '#ffd36b' : '#ff6a5a');
+    R(bx + 1, 40, Math.round(60 * k), 1, 'rgba(255,255,255,0.35)');
+    bx += 66;
+  }
+  if (cfg.boostF > 0) {
+    const ready = f.charges > 0 && f.boostT <= 0;
+    R(bx, 38, 9, 9, '#0b0e1c'); R(bx + 1, 39, 7, 7, f.boostT > 0 ? '#ffd36b' : ready ? '#e8752a' : '#3a4060');
+    P(ctx, bx + 3, 40, 3, 5, ready || f.boostT > 0 ? '#fff' : '#5a6080');
+    if (f.charges > 1) txt('2', bx + 11, 39, '#ffd36b');
+  }
+  // progress strip
+  const x0 = 236, x1 = 378, y = 10, px = d => x0 + (x1 - x0) * clamp(d / ALASKA, 0, 1);
+  R(x0 - 6, y - 4, 6, 7, '#e9eef5'); R(x1, y - 4, 8, 7, '#7c7a5c'); R(x1, y - 4, 8, 1, '#e9eef5');
+  R(x0, y, x1 - x0, 1, '#9fdcf0');
+  R(px(BIGD[0]), y - 3, px(BIGD[1]) - px(BIGD[0]), 3, '#8a90a8'); R(px(LITD[0]), y - 2, px(LITD[1]) - px(LITD[0]), 2, '#8a90a8');
+  for (let i = -4; i < 6; i += 2) R(px(DATELINE), y + i, 1, 1, '#ffe9a8');
+  if (S.rec.dist > 0) { const bxp = px(S.rec.dist); R(bxp, y - 7, 1, 8, '#ffd36b'); R(bxp + 1, y - 7, 3, 2, '#ffd36b'); }
+  const cxp = Math.round(px(Math.max(0, f.x)));
+  R(cxp - 1, y + 2, 3, 3, '#ff6a5a'); R(cxp, y + 1, 1, 1, '#ff6a5a');
+  txt('ALASKA', x1 + 2, y + 6, '#c9d2e8', 'right');
+  // wing stress
+  if (f.stress > 0.85 && f.wings && Math.floor(t * 6) % 2) txt('WING STRESS', W / 2, 52, '#ff6a5a', 'center');
+  // messages
+  msgs.forEach((m, i) => { ctx.globalAlpha = clamp((m.dur - m.t) * 2, 0, 1); txt(m.text, W / 2, 66 + i * 12, m.col, 'center'); });
+  ctx.globalAlpha = 1;
+  // page radar
+  PAGES.forEach((p, i) => {
+    if (S.pages.includes(i)) return;
+    const X = sx(p.x), Y = sy(p.y);
+    if (X > W + 4 && X < W + 2000 && Math.abs(p.x - f.x) < 3500) {
+      const yy = clamp(Y, 50, H - 20); const bl = Math.floor(t * 3) % 2;
+      R(W - 9, yy - 4, 7, 9, '#fff3c4'); R(W - 8, yy - 2, 5, 1, '#8e9bb8'); R(W - 8, yy, 5, 1, '#8e9bb8');
+      if (bl) R(W - 12, yy, 2, 1, '#fff3c4');
+    }
+  });
+  if (GS.ff) txt('>> x2.5', W - 4, 24, '#9fe6f5', 'right');
+  if (GS.phase === 'ready') {
+    if (Math.floor(t * 2) % 2) txt(TOUCHY ? 'TAP TO LAUNCH' : 'PRESS SPACE TO LAUNCH', W / 2, H - 46, '#ffd36b', 'center');
+    if (S.flights < 4 && !TOUCHY) txt('W/S PITCH  SPACE ENGINE  B BOOST', W / 2, H - 32, '#c9d2e8', 'center');
+  }
+  if (S.flights < 3 && GS.phase === 'fly' && f.t < 8) txt(TOUCHY ? 'UP / DOWN TO TILT' : 'W / S TO TILT THE NOSE', W / 2, H - 24, '#c9d2e8', 'center');
+}
+
+// ---------- non-flight scenes ----------
+function renderTitle(t) {
+  cam.s = 2.0; cam.x = -20 + Math.sin(t * 0.1) * 6; cam.y = 76;
+  renderWorld(t, { prog: 0.05 });
+  const L = equippedL(), id = S.equip.ramp, rl = RAMP_LEN[id];
+  const x = -rl, y = rampSurface(id, x);
+  const th = Math.atan2(rampSurface(id, x + 0.5) - y, 0.5);
+  drawCraftAt(sx(x), sy(y), th, L, { t, wind: 0.15, expr: 'calm' }, 0, craftLift(L) - 1);
+  snowfall(t, 0.6);
+}
+const SNOW = Array.from({ length: 70 }, (_, i) => ({ x: hash(i * 3 + 500) * W, y: hash(i * 3 + 501) * H, s: 0.4 + hash(i * 3 + 502) }));
+function snowfall(t, a) {
+  ctx.globalAlpha = a;
+  for (const s of SNOW) { const X = (s.x + Math.sin(t * 0.8 + s.y) * 6 - t * 8 * s.s) % W, Y = (s.y + t * 14 * s.s) % H; R((X + W) % W, Y, s.s > 1.1 ? 2 : 1, s.s > 1.1 ? 2 : 1, '#eef4ff'); }
+  ctx.globalAlpha = 1;
+}
+function wideLayout() { return window.matchMedia('(min-width: 761px)').matches; }
+function drawLevStanding(c, x, y, t, expr, tool) {
+  const coat = '#e8ecf1', coatS = '#b9c2cf';
+  P(c, x - 4, y - 2, 3, 2, PAL.black); P(c, x + 1, y - 2, 3, 2, PAL.black);
+  P(c, x - 3, y - 8, 2, 6, '#2e3346'); P(c, x + 1, y - 8, 2, 6, '#2e3346');
+  P(c, x - 5, y - 18, 10, 11, coat); P(c, x - 6, y - 10, 12, 3, coat); P(c, x - 6, y - 8, 12, 1, coatS); P(c, x + 3, y - 18, 2, 10, coatS);
+  P(c, x - 1, y - 18, 2, 9, PAL.coat); P(c, x - 4, y - 14, 2, 1, coatS);
+  const sw = tool ? Math.round(Math.sin(t * 5) * 2) : 0;
+  P(c, x - 7, y - 17, 2, 8, coat); P(c, x - 7, y - 9, 2, 2, PAL.skin);
+  P(c, x + 5, y - 17, 2, 5, coat); P(c, x + 6, y - 13 + sw, 2, 2, PAL.skin);
+  if (tool) { P(c, x + 7, y - 19 + sw, 1, 7, PAL.grey); P(c, x + 6, y - 20 + sw, 3, 2, PAL.grey); P(c, x + 7, y - 20 + sw, 1, 1, '#3a3f4f'); }
+  P(c, x - 4, y - 19, 8, 2, PAL.scarf); P(c, x - 4, y - 18, 8, 1, PAL.stripe); P(c, x - 3, y - 17, 2, 4, PAL.scarf);
+  P(c, x - 3, y - 25, 7, 6, PAL.skin); P(c, x - 3, y - 20, 7, 1, PAL.skinS);
+  P(c, x - 2, y - 23, 3, 2, PAL.lens); P(c, x + 1, y - 23, 3, 2, PAL.lens); P(c, x - 2, y - 23, 6, 1, PAL.frame);
+  const blink = Math.sin(t * 1.3) > 0.97;
+  if (!blink) { P(c, x - 1, y - 22, 1, 1, PAL.frame); P(c, x + 2, y - 22, 1, 1, PAL.frame); }
+  P(c, x + 4, y - 22, 1, 2, PAL.nose); P(c, x - 2, y - 20, 6, 1, PAL.mou); P(c, x - 3, y - 19, 1, 1, PAL.mou); P(c, x + 4, y - 19, 1, 1, PAL.mou);
+  if (expr === 'happy') P(c, x, y - 19, 2, 1, PAL.teeth);
+  P(c, x - 4, y - 29, 9, 4, PAL.fur); P(c, x - 4, y - 26, 9, 1, PAL.furL); P(c, x - 5, y - 26, 2, 5, PAL.fur); P(c, x + 4, y - 26, 2, 5, PAL.fur); P(c, x - 3, y - 30, 7, 1, PAL.fur);
+  P(c, x - 6, y - 21, 1, 2, PAL.hair); P(c, x + 6, y - 21, 1, 2, PAL.hair);
+}
+function drawBelkaSit(c, x, y, t) {
+  const wag = Math.floor(t * 8) % 2;
+  P(c, x - 3, y - 5, 7, 5, PAL.belka); P(c, x - 3, y - 1, 7, 1, PAL.belkaS);
+  P(c, x, y - 10, 6, 5, PAL.belka); P(c, x + 6, y - 8, 1, 2, PAL.belka); P(c, x + 6, y - 8, 1, 1, PAL.black);
+  P(c, x + 1, y - 12, 1, 2, PAL.belkaT); P(c, x + 4, y - 12, 1, 2, PAL.belkaT);
+  P(c, x + 1, y - 10, 4, 1, PAL.ice); P(c, x + 3, y - 8, 1, 1, PAL.black);
+  P(c, x - 5, y - 3 - wag, 2, 1, PAL.belka); P(c, x + 5, y - 5, 1, 2, PAL.pink);
+}
+function drawGarage(t, craftL, opts) {
+  const wide = wideLayout();
+  const cx = wide ? 98 : W / 2;
+  // wall
+  for (let x = 0; x < W; x += 4) { R(x, 0, 4, 172, (x / 4) % 2 ? '#263049' : '#2c3754'); R(x + 3, 0, 1, 172, '#1e263b'); }
+  R(0, 0, W, 10, '#1a2034'); R(0, 10, W, 2, '#3a4466');
+  // window with aurora
+  const wx = wide ? 20 : 26, wy = 30;
+  R(wx - 3, wy - 3, 66, 46, PAL.woodD); R(wx, wy, 60, 40, '#151b3c');
+  for (let x = 0; x < 60; x += 2) { const yy = 8 + Math.sin(x * 0.12 + t * 0.6) * 4; ctx.globalAlpha = 0.5; R(wx + x, wy + yy, 2, 10, '#5fe0a2'); ctx.globalAlpha = 0.25; R(wx + x, wy + yy + 10, 2, 8, '#8a6ae0'); }
+  ctx.globalAlpha = 1;
+  for (let i = 0; i < 14; i++) R(wx + hash(i + 900) * 60, wy + hash(i + 950) * 24, 1, 1, '#e6ecff');
+  R(wx, wy + 30, 60, 10, '#dfe7f2'); R(wx + 29, wy, 2, 40, PAL.woodD); R(wx, wy + 19, 60, 2, PAL.woodD); R(wx - 4, wy + 40, 68, 3, '#f4f8ff');
+  // map + calendar
+  const mx = wide ? 120 : W - 90;
+  R(mx, 26, 52, 34, '#e9dfc4'); R(mx, 26, 52, 1, '#fff7e0');
+  R(mx + 2, 28, 48, 30, '#8fb7d8'); R(mx + 2, 30, 14, 26, '#d9cfa8'); R(mx + 2, 28, 10, 4, '#d9cfa8'); R(mx + 40, 28, 10, 30, '#d9cfa8'); R(mx + 37, 40, 4, 12, '#d9cfa8');
+  R(mx + 26, 40, 3, 3, '#a89a74'); R(mx + 30, 41, 2, 2, '#a89a74');
+  for (let i = 0; i < 9; i++) if ((i + Math.floor(t * 3)) % 3) R(mx + 16 + i * 3, 42, 2, 1, PAL.red);
+  R(mx + 24, 25, 3, 3, PAL.red);
+  R(mx + 58, 26, 24, 26, '#f2f2ea'); R(mx + 58, 26, 24, 6, PAL.red);
+  txt(String(S.day), mx + 70, 36, '#2a2a33', 'center', false);
+  // shelf + workbench
+  R(4, 92, wide ? 60 : 70, 3, PAL.woodD);
+  for (let i = 0; i < 5; i++) { R(8 + i * 11, 84, 7, 8, ['#a9d2e0', '#e8b04a', '#d8433a', '#7ca06a', '#c9ced8'][i]); R(9 + i * 11, 83, 5, 1, '#3a3f4f'); }
+  const bx = wide ? 4 : W - 74;
+  R(bx, 138, 64, 4, PAL.woodL); R(bx + 2, 142, 3, 30, PAL.woodD); R(bx + 58, 142, 3, 30, PAL.woodD); R(bx, 140, 64, 1, PAL.woodD);
+  R(bx + 8, 131, 10, 7, '#5a6070'); R(bx + 22, 134, 14, 4, PAL.grey); R(bx + 40, 128, 2, 10, PAL.woodD); R(bx + 37, 127, 8, 3, '#5a6070');
+  // floor
+  R(0, 172, W, H - 172, '#363846'); R(0, 172, W, 2, '#4a4c5c');
+  for (let x = 0; x < W; x += 32) R(x, 174, 1, H - 174, '#2c2e3a');
+  // bulb light cone
+  const lx = cx + 6, swing = Math.sin(t * 0.9) * 3;
+  R(lx + swing * 0.3, 10, 1, 26, '#111'); R(lx - 2 + swing, 36, 5, 5, '#ffe9a0');
+  for (let i = 0; i < 66; i++) { const w = 6 + i * 2.3; ctx.globalAlpha = 0.075 * (1 - i / 80); R(lx + swing * (1 - i / 66) - w / 2, 41 + i * 2, w, 2, '#ffe2a0'); }
+  ctx.globalAlpha = 1;
+  // craft: centred in the free floor area, 2x when it fits
+  const L = craftL || equippedL();
+  renderCraftSprite(L, { t, wind: 0, expr: 'calm', empty: true });
+  const bb = spriteBounds(L);
+  const area = wide ? [66, 160] : [118, 374];
+  const sc = (bb.x1 - bb.x0 + 1) * 2 <= area[1] - area[0] ? 2 : 1;
+  const ccx = Math.round((area[0] + area[1]) / 2 - ((bb.x0 + bb.x1) / 2 - SPR_OX) * sc);
+  const ccy = Math.round(173 - (bb.y1 - SPR_OY) * sc);
+  ctx.globalAlpha = 0.35; blob((area[0] + area[1]) / 2, 176, (bb.x1 - bb.x0) * sc * 0.45, 3, '#1c1d26'); ctx.globalAlpha = 1;
+  ctx.save(); ctx.translate(ccx, ccy); ctx.scale(sc, sc); ctx.drawImage(spr, -SPR_OX, -SPR_OY); ctx.restore();
+  // Lev & Belka (2x)
+  const levX = wide ? 22 : 64;
+  ctx.save(); ctx.translate(levX, 172); ctx.scale(2, 2); drawLevStanding(ctx, 0, 0, t, opts && opts.expr, !(opts && opts.notool)); ctx.restore();
+  ctx.save(); if (wide) ctx.translate(52, 138); else ctx.translate(94, 172); ctx.scale(2, 2); drawBelkaSit(ctx, 0, 0, t); ctx.restore();
+  const cx2 = levX + 16;
+  if (!(opts && opts.notool) && Math.floor(t * 5) % 5 === 0) { R(cx2 + hash(Math.floor(t * 5)) * 4, 140, 1, 1, '#ffd36b'); R(cx2 + 2, 138, 1, 1, '#fff2b0'); }
+}
+// ---------- cutscenes ----------
+function drawMap(t) {
+  R(0, 0, W, H, '#1b3b66');
+  for (let y = 0; y < H; y += 6) for (let x = (y / 6 % 2) * 6; x < W; x += 12) R(x, y, 1, 1, '#24497c');
+  const land = '#d9e2ec', landS = '#a8b6ca', ridge = '#8a96ae';
+  // Chukotka
+  for (let y = 0; y < H; y++) { const e = 120 + Math.sin(y * 0.05) * 14 + Math.sin(y * 0.17) * 5 - (y > 90 && y < 120 ? 14 : 0); R(0, y, e, 1, land); R(e - 2, y, 2, 1, landS); }
+  // Alaska (Seward Peninsula)
+  for (let y = 0; y < H; y++) { const e = 268 + Math.sin(y * 0.045 + 2) * 12 + Math.sin(y * 0.2) * 4 + (y > 120 ? (y - 120) * 0.25 : 0) - (y > 85 && y < 105 ? 10 : 0); R(e, y, W - e, 1, land); R(e, y, 2, 1, landS); }
+  for (let i = 0; i < 18; i++) { R(20 + hash(i + 20) * 80, 20 + hash(i + 40) * 170, 4, 1, ridge); R(300 + hash(i + 60) * 70, 20 + hash(i + 80) * 170, 4, 1, ridge); }
+  // Diomedes
+  blob(186, 98, 6, 4, land); blob(200, 101, 4, 3, land);
+  // date line
+  for (let y = 0; y < H; y += 5) R(193, y, 1, 3, '#ffe9a8');
+  // route
+  const prog = clamp(t / 3, 0, 1), x0 = 108, x1 = 262;
+  for (let x = x0; x < lerp(x0, x1, prog); x += 4) R(x, 100 + Math.sin((x - x0) / (x1 - x0) * Math.PI) * -8, 2, 2, '#ff5d5d');
+  R(x0 - 2, 98, 4, 4, '#ffd36b'); R(x1 - 2, 98, 4, 4, '#ffd36b');
+  txt('CHUKOTKA', 14, 14, '#2a3550', 'left', false); txt('ALASKA', W - 14, 14, '#2a3550', 'right', false);
+  txt('82 KM', 190, 76, '#ffffff', 'center');
+  txt('UELEN', x0 - 4, 108, '#2a3550', 'right', false); txt('WALES', x1 + 6, 108, '#2a3550', 'left', false);
+  txt('BERING STRAIT', 190, 140, '#9fc8e8', 'center', false);
+}
+function drawAlaskaScene(t, stage) {
+  const gx = ALASKA + 300, gy = terrain(gx).h;
+  cam.s = 2.0; cam.x = ALASKA + 330; cam.y = gy + 12;
+  renderWorld(t, { prog: 1 });
+  drawCraftAt(sx(gx + 42), sy(terrain(gx + 42).h), Math.atan(slopeAt(gx + 42)), equippedL(), { t, wind: 0, expr: 'happy', empty: true }, 0, craftLift(equippedL()));
+  ctx.save(); ctx.translate(Math.round(sx(gx)), Math.round(sy(gy))); ctx.scale(2, 2);
+  drawLevStanding(ctx, 0, 0, t, 'happy', false); drawBelkaSit(ctx, 12, 0, t);
+  ctx.restore();
+  // villager with thermos
+  const vx = gx - 28 + (stage === 0 ? Math.max(0, 14 - t * 6) : 0);
+  ctx.save(); ctx.translate(Math.round(sx(vx)), Math.round(sy(terrain(vx).h))); ctx.scale(2, 2);
+  const c = ctx;
+  P(c, -4, -2, 3, 2, '#3a2a22'); P(c, 1, -2, 3, 2, '#3a2a22'); P(c, -5, -17, 10, 15, '#2f6fae'); P(c, -6, -6, 12, 4, '#2f6fae'); P(c, -6, -3, 12, 1, '#e9e2d0');
+  P(c, -1, -16, 2, 10, '#e05a4a'); P(c, -4, -24, 8, 8, '#e9e2d0'); P(c, -3, -23, 6, 6, '#c98e66'); P(c, -2, -21, 1, 1, '#2a2a33'); P(c, 1, -21, 1, 1, '#2a2a33'); P(c, -1, -19, 2, 1, '#8a4a3a');
+  P(c, 5, -12, 3, 6, '#7a8a96'); P(c, 5, -12, 3, 1, '#c9d2dc'); P(c, 4, -11, 1, 2, '#c98e66');
+  ctx.globalAlpha = 0.5; P(c, 6, -15 - Math.floor(t * 4) % 3, 1, 2, '#ffffff'); ctx.globalAlpha = 1;
+  ctx.restore();
+  snowfall(t, 0.25);
+}
+function renderCut(t) {
+  const c = GS.cut; if (!c) return;
+  const sc = c.scene;
+  if (sc === 'station') { cam.s = 1.6; cam.x = -140; cam.y = 80; renderWorld(t, { prog: 0 }); snowfall(t, 0.7); }
+  else if (sc === 'memo') { drawGarage(t, null, { notool: true }); ctx.globalAlpha = 0.6; R(0, 0, W, H, '#0b0e1c'); ctx.globalAlpha = 1; }
+  else if (sc === 'map') drawMap(t);
+  else if (sc === 'garage') drawGarage(t, { hull: 'h0', wings: 'w0', engine: 'e0', tank: 't0', booster: 'b0' }, { notool: false });
+  else if (sc === 'alaska') drawAlaskaScene(t, 0);
+  else if (sc === 'alaska2') drawAlaskaScene(t + 10, 1);
+}
+
+// ---------- main loop ----------
+let lastT = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+  GS.t += dt;
+  const t = GS.t;
+  ctx.imageSmoothingEnabled = false;
+  if (GS.scr === 'flight') { updateFlight(dt); renderFlight(t); if (GS.paused) { ctx.globalAlpha = 0.5; R(0, 0, W, H, '#0b0e1c'); ctx.globalAlpha = 1; } }
+  else {
+    AU.loop(false, 0, false, 0, false);
+    if (GS.scr === 'title') renderTitle(t);
+    else if (GS.scr === 'hangar') drawGarage(t);
+    else if (GS.scr === 'cut') renderCut(t - (GS.cut ? GS.cut.t0 : 0));
+  }
+  requestAnimationFrame(frame);
+}
+
+// ---------- input ----------
+const TOUCH = { up: false, down: false, thrust: false };
+window.addEventListener('keydown', e => {
+  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code) && (GS.scr === 'flight')) e.preventDefault();
+  if (e.repeat) { keys[e.code] = true; return; }
+  keys[e.code] = true;
+  AU.init();
+  if (GS.scr === 'flight') {
+    if (e.code === 'Space' && GS.phase === 'ready') launchNow();
+    if (e.code === 'KeyB' || e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyE') boostPressed = true;
+    if (e.code === 'KeyF') { GS.ff = !GS.ff; UI.syncCtl(); }
+    if (e.code === 'Escape' || e.code === 'KeyP') UI.togglePause();
+  } else UI.onKey(e);
+});
+window.addEventListener('keyup', e => { keys[e.code] = false; });
+window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+cv.addEventListener('pointerdown', () => { AU.init(); if (GS.scr === 'flight' && GS.phase === 'ready') launchNow(); });
+
+// ================= UI (DOM screens) =================
+const $ = id => document.getElementById(id);
+const INTRO = [
+  { scene: 'station', text: "Chukotka, the far eastern edge of Russia. Research Station No. 7, where Dr. Lev Orlov studies very light metals." },
+  { scene: 'memo', memo: { head: 'МИНИСТЕРСТВО ОДОБРЕННОЙ НАУКИ', sub: 'Ministry of Approved Science · Order No. 4471', body: "Dr. L. Orlov: your laboratory is reassigned to potato storage, effective immediately. Your research into lightweight alloys is classified UNNECESSARY. Report to the potato depot at 06:00.", stamp: 'УТВЕРЖДЕНО' } },
+  { scene: 'map', text: "Across the Bering Strait lies Alaska, where Lev's sister Natasha has lived for twenty-eight years. Eighty-two kilometers of cold water, two islands and one date line." },
+  { scene: 'garage', text: "No passport. No plane. Just a garage full of junk, a cast-iron bathtub, and Belka." },
+  { scene: 'garage', text: "The village has started betting on Lev's flights. Every meter flown pays out in rubles, and every ruble buys a better part. Time to learn to flee." }
+];
+const ENDING = [
+  { scene: 'alaska', text: "Wales, Alaska: the westernmost town in mainland America. A woman in a blue parka walks down from the village with a thermos." },
+  { scene: 'alaska2', text: "She looks at the craft, then at Lev, then at the dog in goggles. “Long way to come for coffee,” she says. Lev laughs until his glasses fog up." },
+  { scene: 'alaska2', text: () => `Dr. Lev Orlov and Belka reached America on Day ${S.wonDay}, after ${S.flights} flights. Somewhere in Anchorage, a kettle is going on.` },
+  { scene: 'alaska2', text: "Free flight is open. Keep chasing records, research pages and awards from the garage." }
+];
+const STATDEF = {
+  ramp: [['Launch', p => p.speed, ' m/s', 1], ['Angle', p => p.angle, '°', 0]],
+  hull: [['Mass', p => p.mass, ' kg', -1], ['Drag', p => p.cd, '', -1], ['Hull', p => p.hp, ' pts', 1]],
+  wings: [['Lift area', p => p.S, ' m²', 1], ['Drag', p => p.cd, '', -1], ['Max speed', p => p.vmax > 9999 ? null : p.vmax, ' m/s', 1]],
+  engine: [['Thrust', p => p.thrust, ' N', 1], ['Burn', p => p.burn, ' L/s', -1], ['Prop limit', p => p.pv || null, ' m/s', 1]],
+  tank: [['Fuel', p => p.cap, ' L', 1], ['Mass', p => p.mass, ' kg', -1]],
+  booster: [['Thrust', p => p.F, ' N', 1], ['Burn', p => p.T, ' s', 1]]
+};
+const RUB = '<i class="rub" aria-label="rubles"></i>';
+
+const UI = {
+  cat: 'ramp', tab: 'parts', resultsAnim: null, faceCanvases: [], memoOpen: false,
+  init() {
+    $('btnContinue').onclick = () => { AU.init(); AU.sfx('click'); this.enterHangar(); };
+    $('btnNew').onclick = () => { AU.init(); AU.sfx('click'); if (hasSave()) this.confirm('Start a new escape? Your garage, rubles and records will be erased.', () => { S = defSave(); persist(); this.startIntro(); }); else this.startIntro(); };
+    $('btnTitleSound').onclick = () => this.toggleSound();
+    $('cutNext').onclick = () => this.cutNext();
+    $('cutSkip').onclick = () => this.cutEnd();
+    $('btnLaunch').onclick = () => this.launch();
+    $('rCont').onclick = () => this.resultsContinue();
+    $('memoOk').onclick = () => this.closeMemo();
+    $('pzResume').onclick = () => this.togglePause(false);
+    $('pzFF').onclick = () => { GS.ff = !GS.ff; this.syncCtl(); };
+    $('pzEnd').onclick = () => { this.togglePause(false); if (GS.phase === 'ready') { this.enterHangar(); } else abortFlight(); };
+    $('pzSound').onclick = () => this.toggleSound();
+    $('btnSound').onclick = () => this.toggleSound();
+    $('btnTitle').onclick = () => { AU.sfx('click'); this.toTitle(); };
+    $('btnReset').onclick = () => this.confirm('Erase all progress and start over from Day 1?', () => { S = defSave(); persist(); this.toTitle(); });
+    $('cfNo').onclick = () => { $('pConfirm').hidden = true; };
+    document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => { AU.sfx('click'); this.tab = b.dataset.tab; this.renderHangar(); });
+    // touch controls
+    const hold = (id, key) => {
+      const el = $(id);
+      const on = e => { e.preventDefault(); AU.init(); TOUCH[key] = true; el.classList.add('down'); if (GS.phase === 'ready') launchNow(); try { el.setPointerCapture(e.pointerId); } catch (_) { } };
+      const off = () => { TOUCH[key] = false; el.classList.remove('down'); };
+      el.addEventListener('pointerdown', on); el.addEventListener('pointerup', off); el.addEventListener('pointercancel', off); el.addEventListener('lostpointercapture', off);
+    };
+    hold('cUp', 'up'); hold('cDown', 'down'); hold('cThrust', 'thrust');
+    $('cBoost').addEventListener('pointerdown', e => { e.preventDefault(); AU.init(); if (GS.phase === 'ready') launchNow(); else boostPressed = true; });
+    $('cPause').onclick = () => this.togglePause();
+    $('cFF').onclick = () => { GS.ff = !GS.ff; this.syncCtl(); };
+    this.syncSound();
+  },
+  show(...ids) {
+    ['pTitle', 'pCut', 'pHangar', 'pResults', 'pMemo', 'pPause', 'pCtl', 'pConfirm'].forEach(p => { $(p).hidden = !ids.includes(p); });
+    document.body.dataset.scr = GS.scr;
+  },
+  toTitle() {
+    GS.scr = 'title'; this.show('pTitle');
+    const has = hasSave();
+    $('btnContinue').hidden = !has; $('btnContinue').textContent = 'Continue · Day ' + S.day;
+    $('btnNew').textContent = has ? 'New escape' : 'Begin the escape';
+  },
+  // ---------- cutscenes ----------
+  startIntro() { this.playCut(INTRO, () => { S.intro = true; persist(); this.enterHangar(); }); },
+  playCut(list, done) { this.cutList = list; this.cutIdx = 0; this.cutDone = done; GS.scr = 'cut'; this.show('pCut'); this.renderCut(); },
+  renderCut() {
+    const c = this.cutList[this.cutIdx];
+    GS.cut = { scene: c.scene, t0: GS.t };
+    const memo = !!c.memo;
+    $('memoPaper').hidden = !memo; $('cutBox').hidden = memo;
+    if (memo) { $('mpHead').textContent = c.memo.head; $('mpSub').textContent = c.memo.sub; $('mpBody').textContent = c.memo.body; $('mpStamp').textContent = c.memo.stamp; }
+    else $('cutText').textContent = typeof c.text === 'function' ? c.text() : c.text;
+    $('cutNext').textContent = this.cutIdx === this.cutList.length - 1 ? 'Continue' : 'Next';
+    $('cutCount').textContent = (this.cutIdx + 1) + ' / ' + this.cutList.length;
+    $('cutNext').focus({ preventScroll: true });
+  },
+  cutNext() { AU.init(); AU.sfx('click'); if (this.cutIdx < this.cutList.length - 1) { this.cutIdx++; this.renderCut(); } else this.cutEnd(); },
+  cutEnd() { GS.cut = null; const d = this.cutDone; this.cutDone = null; if (d) d(); },
+  // ---------- hangar ----------
+  enterHangar() {
+    if (!S.intro && S.flights === 0) { this.startIntro(); return; }
+    GS.scr = 'hangar'; this.show('pHangar'); this.renderHangar();
+    this.nextMemo();
+  },
+  nextMemo() {
+    if (S.pending.length) {
+      const k = S.pending[0], d = DIARY[k];
+      this.openMemo('diary', d.title, d.text);
+    } else if (S.flights > 0 && S.day - S.memoDay >= 3 && !S.won) {
+      S.memoDay = S.day; const m = MEMOS[S.memoIdx % MEMOS.length]; S.memoIdx++; persist();
+      this.openMemo('notice', 'Notice No. ' + (4471 + S.memoIdx * 13), m);
+    }
+  },
+  openMemo(kind, title, text) {
+    const el = $('pMemo'); el.dataset.kind = kind;
+    $('memoKind').textContent = kind === 'notice' ? 'МИНИСТЕРСТВО ОДОБРЕННОЙ НАУКИ' : 'Lev’s diary';
+    $('memoTitle').textContent = title; $('memoText').textContent = text;
+    $('memoStamp').hidden = kind !== 'notice';
+    el.hidden = false; this.memoOpen = true; $('memoOk').focus({ preventScroll: true });
+  },
+  closeMemo() {
+    AU.sfx('click'); $('pMemo').hidden = true; this.memoOpen = false;
+    if ($('pMemo').dataset.kind === 'diary' && S.pending.length) { S.pending.shift(); persist(); }
+    this.nextMemo();
+  },
+  launch() {
+    AU.init(); AU.sfx('click');
+    const cfg = buildCfg(S.equip, S.gadgets);
+    startFlight(); this.show('pCtl'); this.syncCtl();
+    if (cfg.engine.id !== 'e0' && cfg.fuelCap === 0) say('ENGINE NEEDS A FUEL TANK', '#ff8a7a', 3);
+  },
+  renderHangar() {
+    $('hDay').textContent = S.day;
+    $('hCash').textContent = fmtNum(S.cash);
+    $('hBest').textContent = fmtDist(S.rec.dist);
+    $('hBestBar').style.width = Math.min(100, S.rec.dist / ALASKA * 100) + '%';
+    const cfg = buildCfg(S.equip, S.gadgets);
+    const warn = cfg.engine.id !== 'e0' && cfg.fuelCap === 0 ? ' <span class="warn">Engine has no fuel tank</span>' : '';
+    $('hStats').innerHTML = `<span>Mass <b>${fmtNum(cfg.dry)} kg</b></span><span>Thrust <b>${fmtNum(cfg.thrust)} N</b></span><span>Fuel <b>${cfg.fuelCap} L</b></span><span>Wing <b>${cfg.S} m²</b></span><span>Hull <b>${cfg.hp}</b></span>${warn}`;
+    document.querySelectorAll('#tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === this.tab));
+    ['parts', 'goals', 'notes', 'awards'].forEach(t => $('tab_' + t).hidden = t !== this.tab);
+    const gc = Object.keys(S.goals).length, ac = Object.keys(S.ach).length;
+    $('tabGoalsN').textContent = gc + '/30'; $('tabNotesN').textContent = S.pages.length + '/12'; $('tabAwardsN').textContent = ac + '/' + ACH.length;
+    if (this.tab === 'parts') this.renderParts();
+    else if (this.tab === 'goals') this.renderGoals();
+    else if (this.tab === 'notes') this.renderNotes();
+    else this.renderAwards();
+  },
+  renderParts() {
+    const cats = $('cats'); cats.innerHTML = '';
+    CATS.forEach(c => {
+      const b = document.createElement('button'); b.className = 'cat'; b.setAttribute('aria-pressed', c.id === this.cat);
+      const cv2 = document.createElement('canvas'); cv2.width = 48; cv2.height = 30; const cc = cv2.getContext('2d');
+      const id = c.id === 'gadget' ? (S.gadgets[0] || 'g1') : S.equip[c.id];
+      drawPartIcon(cc, c.id, id === 'w0' || id === 'e0' || id === 't0' || id === 'b0' ? PARTS[c.id][1].id : id, 0);
+      b.appendChild(cv2); const sp = document.createElement('span'); sp.textContent = c.label; b.appendChild(sp);
+      b.onclick = () => { AU.sfx('click'); this.cat = c.id; this.renderParts(); };
+      cats.appendChild(b);
+    });
+    const list = $('items'); list.innerHTML = '';
+    const cat = this.cat;
+    if (cat === 'gadget') {
+      const n = document.createElement('p'); n.className = 'note';
+      n.innerHTML = `Gadget slots: <b>${S.gadgets.length} / 2</b> in use. Unequip one to swap.`;
+      list.appendChild(n);
+    }
+    const eq = cat === 'gadget' ? null : partOf(cat, S.equip[cat]);
+    PARTS[cat].forEach(p => {
+      const owned = S.owned[cat].includes(p.id);
+      const equipped = cat === 'gadget' ? S.gadgets.includes(p.id) : S.equip[cat] === p.id;
+      const card = document.createElement('div'); card.className = 'item' + (equipped ? ' equipped' : '') + (owned ? ' owned' : '');
+      const ic = document.createElement('canvas'); ic.width = 48; ic.height = 30; ic.className = 'icon';
+      drawPartIcon(ic.getContext('2d'), cat, p.id, 0);
+      const meta = document.createElement('div'); meta.className = 'meta';
+      let stats = '';
+      (STATDEF[cat] || []).forEach(([lab, fn, unit, dir]) => {
+        const v = fn(p); let d = '';
+        if (eq && !equipped && typeof v === 'number') { const e = fn(eq); if (typeof e === 'number' && e !== v && dir) { const better = (v - e) * dir > 0; d = ` <em class="${better ? 'up' : 'down'}">${v > e ? '+' : '−'}${fmtStat(Math.abs(v - e))}</em>`; } }
+        stats += `<span>${lab} <b>${v === null ? '—' : fmtStat(v) + unit}</b>${d}</span>`;
+      });
+      meta.innerHTML = `<h4>${p.name}</h4><p>${p.desc}</p>${stats ? `<div class="stats">${stats}</div>` : ''}`;
+      const btn = document.createElement('button'); btn.className = 'btn sm';
+      if (equipped) { btn.textContent = cat === 'gadget' ? 'Unequip' : 'In use'; btn.disabled = cat !== 'gadget'; if (cat === 'gadget') btn.onclick = () => { S.gadgets = S.gadgets.filter(g => g !== p.id); AU.sfx('click'); persist(); this.renderHangar(); }; }
+      else if (owned) {
+        btn.textContent = 'Equip';
+        if (cat === 'gadget' && S.gadgets.length >= 2) { btn.disabled = true; btn.textContent = 'Slots full'; }
+        btn.onclick = () => { if (cat === 'gadget') S.gadgets.push(p.id); else S.equip[cat] = p.id; AU.sfx('click'); persist(); this.renderHangar(); };
+      } else {
+        const can = S.cash >= p.cost;
+        btn.innerHTML = `${can ? 'Buy' : 'Need'} ${fmtNum(p.cost)}${RUB}`; btn.className = 'btn sm buy' + (can ? '' : ' poor');
+        btn.disabled = !can;
+        btn.onclick = () => {
+          if (S.cash < p.cost) { AU.sfx('deny'); return; }
+          S.cash -= p.cost; S.owned[cat].push(p.id);
+          if (cat === 'gadget') { if (S.gadgets.length < 2) S.gadgets.push(p.id); } else S.equip[cat] = p.id;
+          AU.sfx('buy'); checkMaxed(); persist(); this.renderHangar(); this.nextMemoIfIdle();
+        };
+      }
+      card.append(ic, meta, btn); list.appendChild(card);
+    });
+  },
+  nextMemoIfIdle() { if (!this.memoOpen) this.nextMemo(); },
+  renderGoals() {
+    const el = $('tab_goals'); el.innerHTML = '';
+    GOALS.forEach(g => {
+      const row = document.createElement('div'); row.className = 'goalrow';
+      row.innerHTML = `<h4>${g.label} <small>best ${g.fmt(S.rec[g.key] || 0)}</small></h4>`;
+      const chips = document.createElement('div'); chips.className = 'chips';
+      g.tiers.forEach((th, i) => {
+        const done = !!S.goals[g.id + i];
+        const c = document.createElement('div'); c.className = 'chip' + (done ? ' done' : '');
+        c.innerHTML = `<b>${g.fmt(th)}</b><span>${done ? 'Complete' : '+' + fmtNum(g.rew[i]) + RUB}</span>`;
+        chips.appendChild(c);
+      });
+      row.appendChild(chips); el.appendChild(row);
+    });
+  },
+  renderNotes() {
+    const el = $('tab_notes'); el.innerHTML = '<p class="note">Lev’s research notes blew away over the strait. Each page you catch in flight pays 300 rubles.</p>';
+    const grid = document.createElement('div'); grid.className = 'pages';
+    PAGES.forEach((p, i) => {
+      const have = S.pages.includes(i);
+      const d = document.createElement('div'); d.className = 'page' + (have ? ' have' : '');
+      d.innerHTML = have ? `<h5>Page ${i + 1}</h5><p>${p.text}</p>` : `<h5>Page ${i + 1}</h5><p class="hint">Missing. Look ${p.hint}.</p>`;
+      grid.appendChild(d);
+    });
+    el.appendChild(grid);
+  },
+  renderAwards() {
+    const el = $('tab_awards'); el.innerHTML = '';
+    const grid = document.createElement('div'); grid.className = 'awards';
+    ACH.forEach(a => {
+      const have = !!S.ach[a.id];
+      const d = document.createElement('div'); d.className = 'award' + (have ? ' have' : '');
+      d.innerHTML = `<div class="medal" aria-hidden="true"></div><div><h5>${a.name}</h5><p>${a.desc}</p></div><span class="rew">${a.rew ? '+' + fmtNum(a.rew) + RUB : ''}</span>`;
+      grid.appendChild(d);
+    });
+    el.appendChild(grid);
+  },
+  // ---------- results ----------
+  showResults(sum) {
+    GS.scr = 'flight';
+    this.show('pResults');
+    this.res = sum;
+    $('rDay').textContent = sum.day;
+    $('rEnd').textContent = sum.endText;
+    $('rQuote').textContent = '“' + sum.quote + '”';
+    const rows = [
+      ['Distance', fmtDist(sum.stats.dist), sum.pay.dist, sum.records.dist],
+      ['Max altitude', fmtAlt(sum.stats.alt), sum.pay.alt, sum.records.alt],
+      ['Top speed', sum.stats.speed + ' m/s', sum.pay.speed, sum.records.speed],
+      ['Airtime', sum.stats.air + ' s', sum.pay.air, sum.records.air],
+      ['Pickups', sum.pages.length ? sum.pages.length + ' page' + (sum.pages.length > 1 ? 's' : '') + ' + cash' : 'cash bundles', sum.pay.pick, false]
+    ];
+    if (sum.pay.bonus) rows.push(['Abacus bonus', '+25%', sum.pay.bonus, false]);
+    sum.goalsHit.forEach(g => rows.push(['Goal', g.label, g.rew, false, 'goal']));
+    sum.achHit.forEach(a => rows.push(['Award', a.name, a.rew, false, 'ach']));
+    const tb = $('rRows'); tb.innerHTML = '';
+    rows.forEach((r, i) => {
+      const tr = document.createElement('div'); tr.className = 'trow ' + (r[4] || ''); tr.style.setProperty('--d', (i * 0.16) + 's');
+      tr.innerHTML = `<span class="k">${r[0]}</span><span class="v">${r[1]}${r[3] ? ' <mark>Record</mark>' : ''}</span><span class="c" data-v="${r[2]}">+0${RUB}</span>`;
+      tb.appendChild(tr);
+    });
+    const total = sum.pay.total + sum.goalCash;
+    $('rTotal').innerHTML = `+0${RUB}`;
+    $('rBank').textContent = fmtNum(S.cash);
+    const cells = [...tb.querySelectorAll('.c')];
+    const start = performance.now();
+    const dur = 300 + rows.length * 160;
+    cancelAnimationFrame(this.resultsAnim);
+    const anim = now => {
+      const k = Math.min(1, (now - start) / dur);
+      cells.forEach((c, i) => { const kk = clamp((now - start - i * 160) / 350, 0, 1); c.innerHTML = '+' + fmtNum(+c.dataset.v * kk) + RUB; });
+      $('rTotal').innerHTML = '+' + fmtNum(total * k) + RUB;
+      if (k < 1) this.resultsAnim = requestAnimationFrame(anim); else this.resultsAnim = null;
+      if (Math.floor(now / 90) % 2 === 0 && k < 1) AU.tone(1200 + k * 600, 0.02, 'square', 0.03);
+    };
+    this.resultsAnim = requestAnimationFrame(anim);
+    if (sum.goalsHit.length || sum.achHit.length) setTimeout(() => AU.sfx('goal'), dur);
+    $('rCont').textContent = sum.winNow ? 'Climb out' : 'Back to the garage';
+    $('rCont').focus({ preventScroll: true });
+  },
+  resultsContinue() {
+    AU.sfx('click');
+    if (this.resultsAnim) { cancelAnimationFrame(this.resultsAnim); this.resultsAnim = null; }
+    if (this.res && this.res.winNow) { AU.sfx('win'); this.playCut(ENDING, () => this.enterHangar()); }
+    else this.enterHangar();
+  },
+  // ---------- flight controls ----------
+  togglePause(force) {
+    if (GS.scr !== 'flight' || !(GS.phase === 'fly' || GS.phase === 'ramp' || GS.phase === 'ready')) return;
+    GS.paused = typeof force === 'boolean' ? force : !GS.paused;
+    $('pPause').hidden = !GS.paused;
+    $('pzEnd').textContent = GS.phase === 'ready' ? 'Back to the garage' : 'End flight and collect';
+    if (GS.paused) $('pzResume').focus({ preventScroll: true });
+    this.syncCtl();
+  },
+  syncCtl() {
+    $('cFF').setAttribute('aria-pressed', GS.ff); $('pzFF').textContent = GS.ff ? 'Normal speed' : 'Fast forward (F)';
+    $('cBoost').hidden = !(GS.cfg && GS.cfg.boostF > 0);
+  },
+  toggleSound() { S.sound = !S.sound; persist(); AU.init(); AU.setOn(S.sound); this.syncSound(); AU.sfx('click'); },
+  syncSound() { const t = 'Sound: ' + (S.sound ? 'on' : 'off');['btnSound', 'pzSound', 'btnTitleSound'].forEach(id => $(id).textContent = t); },
+  confirm(text, yes) { $('cfText').textContent = text; $('pConfirm').hidden = false; $('cfYes').onclick = () => { $('pConfirm').hidden = true; AU.sfx('click'); yes(); }; $('cfNo').focus({ preventScroll: true }); },
+  onKey(e) {
+    const onBody = e.target === document.body || e.target === cv;
+    if (!$('pConfirm').hidden) { if (e.code === 'Escape') $('pConfirm').hidden = true; return; }
+    if (GS.scr === 'cut' && onBody && (e.code === 'Space' || e.code === 'Enter')) { e.preventDefault(); this.cutNext(); }
+    else if (GS.scr === 'hangar' && onBody) {
+      if (this.memoOpen && (e.code === 'Space' || e.code === 'Enter' || e.code === 'Escape')) { e.preventDefault(); this.closeMemo(); }
+      else if (!this.memoOpen && (e.code === 'Space' || e.code === 'Enter')) { e.preventDefault(); this.launch(); }
+    } else if (GS.scr === 'title' && onBody && e.code === 'Enter') { (hasSave() ? $('btnContinue') : $('btnNew')).click(); }
+  },
+  tick(t) {
+    if (!$('pResults').hidden && this.res) { const c = $('rFace').getContext('2d'); c.clearRect(0, 0, 32, 32); drawFace(c, 0, 0, this.res.expr, t, 0); }
+    if (!$('pMemo').hidden) { const c = $('memoFace').getContext('2d'); c.clearRect(0, 0, 32, 32); drawFace(c, 0, 0, $('pMemo').dataset.kind === 'notice' ? 'scared' : 'calm', t, 0); }
+    if (GS.scr === 'title') { const c = $('titleFace').getContext('2d'); c.clearRect(0, 0, 32, 32); drawFace(c, 0, 0, 'determined', t, 0.6 + 0.4 * Math.sin(t)); }
+  }
+};
+// the flight-end key handling (Space/Enter on the report)
+window.addEventListener('keydown', e => {
+  if (GS.scr === 'flight' && !$('pResults').hidden && (e.code === 'Enter' || (e.code === 'Space' && (e.target === document.body || e.target === cv)))) {
+    e.preventDefault(); if (UI.resultsAnim) { cancelAnimationFrame(UI.resultsAnim); UI.resultsAnim = null; const r = UI.res; document.querySelectorAll('#rRows .c').forEach(c => c.innerHTML = '+' + fmtNum(+c.dataset.v) + RUB); $('rTotal').innerHTML = '+' + fmtNum(r.pay.total + r.goalCash) + RUB; } else UI.resultsContinue();
+  }
+});
+function fmtStat(v) { return Number.isInteger(v) ? fmtNum(v) : (Math.round(v * 100) / 100).toString(); }
+
+// ---------- boot ----------
+function boot() {
+  UI.init(); UI.toTitle();
+  lastT = performance.now();
+  requestAnimationFrame(function loop(now) { UI.tick(GS.t); requestAnimationFrame(loop); });
+  requestAnimationFrame(frame);
+}
+Promise.race([document.fonts ? document.fonts.load(FONT) : Promise.resolve(), new Promise(r => setTimeout(r, 1500))]).then(boot, boot);
+
+</script>
+
+</body>
+</html>
